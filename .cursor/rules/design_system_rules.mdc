@@ -1,0 +1,158 @@
+---
+description: Design system rules for Figma MCP usage.
+---
+
+# Design System Rules
+
+Use this guide to translate Figma MCP outputs into this repo's design system. Follow it for all UI changes.
+
+## Token Definitions
+
+- **Source of truth:** CSS custom properties in `app/globals.css`.
+- **Usage pattern:** Tailwind utility classes with CSS variables, e.g. `bg-[var(--background-main-default)]` and `text-[length:var(--size-base)]`.
+- **Common aliases:** Some tokens are duplicated with slash and dash naming (ex: `--size/base` and `--size-base`). Prefer the **slash** naming in new code when available.
+- **Focus shadows:** Use `--shadow/accessibility/*` tokens and apply them only on focus-visible states.
+
+## Token Categories
+
+### Colors
+- **Background:** `--background/main/default`, `--card/color/bg/default`, `--table/color/bg/*`
+- **Border:** `--border/main/default`, `--card/color/border/default`, `--input/color/border/*`
+- **Text:** `--text/main/default`, `--text/subtle/default`, `--input/color/fg/*`
+- **Status:** `--badge/color/*/success|warning|danger|neutral`, `--banner/color/*/info|warning|danger|success`
+
+### Typography
+- **Sizes:** `--size-base` (16px), `--size-small` (14px), `--size-caption` (12px)
+- **Line heights:** `--leading-base` (24px), `--leading-small` (20px), `--leading-caption` (16px)
+- **Weights:** `--weight-regular` (400), `--weight-semibold` (600)
+- **Heading sizes:** `--font-h1-size` through `--font-h6-size`
+
+### Spacing & Dimensions
+- **Spacing scale:** `--space-1` through `--space-12`
+- **Component dimensions:** `--dimensions/height` (56px), `--dimensions/radii` (8px), `--dimensions/padding/*`
+- **Icon dimensions:** `--icon/dimension/width/base` (20px), `--icon/dimension/height/base` (20px)
+
+## Component Library
+
+- **UI components live in:** `ui/`
+- **Pattern:** stateless React components with props, using Tailwind + CSS variables.
+- **Exports:** `ui/index.ts` is the public surface; add new primitives there.
+
+## Component Token Mapping
+
+### Card
+- Background: `--card/color/bg/default`
+- Border: `--card/color/border/default`
+- Border radius: `--card/dimensions/radii`
+- Padding: `--card/dimensions/padding/inline`, `--card/dimensions/padding/block`
+
+### Badge
+- Padding: `--badge/dimensions/padding/inline`, `--badge/dimensions/padding/block`
+- Border radius: `--badge/dimensions/radii` (pill shape: 999px)
+- Colors per variant: `--badge/color/bg|fg|border/{variant}`
+
+### Banner
+- Padding: `--banner/dimensions/padding`
+- Border radius: `--banner/dimensions/radii`
+- Colors per variant: `--banner/color/bg|fg|border/{variant}`
+
+### Button
+- Height: `--button-height-lg` (48px), `--button-height-sm` (32px)
+- Border radius: `--button-radius` (64px)
+- Colors per variant/sentiment: `--button-{sentiment}-{variant}-{state}`
+
+### Input/FieldInput
+- Height: `--input/dimensions/height` (56px)
+- Border radius: `--input/dimensions/radii` (8px)
+- Padding: `--input/dimensions/padding/inline`
+- Colors: `--input/color/bg/*`, `--input/color/border/*`, `--input/color/fg/*`
+
+### Select/FieldSelect
+- All tokens prefixed with `--select-*`
+- Focus shadow: `--select-shadow-focus`
+- Menu shadow: `--select-shadow-menu`
+
+### Switch
+- All tokens prefixed with `--switch/*`
+- Dimensions: `--switch/dimensions/width` (56px), `--switch/dimensions/height` (32px)
+
+### Checkbox
+- All tokens prefixed with `--checkbox/*`
+- Dimensions: `--checkbox/input/dimensions/width|height` (16px)
+
+### Radio
+- All tokens prefixed with `--radio/*`
+- Dimensions: `--radio/input/dimensions/width|height` (16px)
+
+### Table
+- Header background: `--table/color/bg/header`
+- Body background: `--table/color/bg/body`
+- Hover: `--table/color/bg/hover`
+- Border: `--table/color/border/default`
+
+### Modal
+- Overlay: `--modal/color/overlay`
+- Background: `--modal/color/bg/default`
+- Border radius: `--modal/dimensions/radii`
+- Max width: `--modal/dimensions/max-width`
+
+### AppShell
+- Sidebar width: `--shell/sidebar/width`
+- Colors: `--shell/color/bg/sidebar|main|header`
+- Padding: `--shell/dimensions/padding`
+
+### Link
+- Primary color: `--link-primary`
+- Hover color: `--link-primary-hover`
+- Focus color: `--link-primary-focus`
+
+## Frameworks & Libraries
+
+- **Framework:** Next.js App Router (`app/`).
+- **Styling:** Tailwind CSS with design tokens defined in `app/globals.css`.
+- **State:** React hooks; no external UI libs.
+
+## Asset Management
+
+- **Icons & SVGs:** Stored as URLs (often localhost) in component files. Follow existing patterns (const string URL + `<img src=...>`).
+- **Local assets:** `public/illustrations/` used directly via `/illustrations/...`.
+
+## Icon System
+
+- **Usage:** Inline `<img>` tags with fixed dimensions and CSS variable sizing.
+- **Naming:** `iconSomething` or `imgSomething` constants per component.
+- **Icon sizes:** Use `--icon/dimension/width|height/base` (20px) or `--icon/dimension/width|height/caption` (16px)
+
+## Styling Approach
+
+- **Tailwind utilities + CSS variables:** Use `var(--token-name)` inside Tailwind brackets
+- **Tokens over raw colors:** Never hardcode colors, always use CSS vars
+- **Accessibility:** Keep `aria-*` attributes in control components (switch/checkbox/radio)
+- **Focus states:** Use `--shadow/accessibility/*` tokens for focus rings
+
+## Project Structure
+
+- **UI primitives:** `ui/`
+- **Feature pages:** `app/**/page.tsx`
+- **State/context:** `contexts/`
+- **Domain models:** `domain/`
+- **Tests:** `tests/ui/` for Playwright UI tests
+
+## Figma MCP Components (Selection)
+
+Always use the following primitives for selection controls and keep them aligned to Figma tokens/states:
+
+- `FieldSwitch` (`ui/FieldSwitch.tsx`)
+- `FieldCheckbox` (`ui/FieldCheckbox.tsx`)
+- `FieldRadioGroup` (`ui/FieldRadioGroup.tsx`)
+
+If a screen uses a switch/checkbox/radiobutton, replace custom markup with these primitives or align indicators with the same tokens and assets.
+
+## UI Test Requirement
+
+For every task that modifies UI components or screens, add/extend a Playwright UI test that verifies:
+1. Component visibility
+2. Correct CSS properties from design tokens (dimensions, colors, spacing)
+3. Interactive states (hover, focus, disabled) when applicable
+
+Test file location: `tests/ui/design-system.spec.ts`

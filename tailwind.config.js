@@ -1,0 +1,72 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './ui/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    spacing: {
+      0: 'var(--space-0)',
+      1: 'var(--space-1)',
+      2: 'var(--space-2)',
+      3: 'var(--space-3)',
+      4: 'var(--space-4)',
+      5: 'var(--space-5)',
+      6: 'var(--space-6)',
+      8: 'var(--space-8)',
+      10: 'var(--space-10)',
+      12: 'var(--space-12)',
+      14: '3.5rem',
+      16: '4rem',
+      20: '5rem',
+      24: '6rem',
+    },
+    extend: {
+      fontFamily: {
+        sans: ['var(--font-sans)', 'sans-serif'],
+      },
+      fontSize: {
+        xs: ['var(--text-xs)', { lineHeight: 'var(--text-xs-line-height)' }],
+        sm: ['var(--text-sm)', { lineHeight: 'var(--text-sm-line-height)' }],
+        base: ['var(--text-base)', { lineHeight: 'var(--text-base-line-height)' }],
+        lg: ['var(--text-lg)', { lineHeight: 'var(--text-lg-line-height)' }],
+        xl: ['var(--text-xl)', { lineHeight: 'var(--text-xl-line-height)' }],
+        '2xl': ['var(--text-2xl)', { lineHeight: 'var(--text-2xl-line-height)' }],
+        display: ['var(--font-display-size)', { lineHeight: 'var(--font-display-line-height)' }],
+        h1: ['var(--font-h1-size)', { lineHeight: 'var(--font-h1-line-height)' }],
+        h2: ['var(--font-h2-size)', { lineHeight: 'var(--font-h2-line-height)' }],
+        h3: ['var(--font-h3-size)', { lineHeight: 'var(--font-h3-line-height)' }],
+        h4: ['var(--font-h4-size)', { lineHeight: 'var(--font-h4-line-height)' }],
+        h5: ['var(--font-h5-size)', { lineHeight: 'var(--font-h5-line-height)' }],
+        h6: ['var(--font-h6-size)', { lineHeight: 'var(--font-h6-line-height)' }],
+        caption: ['var(--font-caption-size)', { lineHeight: 'var(--font-caption-line-height)' }],
+      },
+      colors: {
+        bg: 'var(--bg)',
+        surface: 'var(--surface)',
+        'surface-muted': 'var(--surface-muted)',
+        border: 'var(--border)',
+        text: 'var(--text)',
+        muted: 'var(--muted)',
+        primary: {
+          DEFAULT: 'var(--primary)',
+          foreground: 'var(--primary-foreground)',
+        },
+        success: 'var(--success)',
+        warning: 'var(--warning)',
+        error: 'var(--error)',
+      },
+      borderRadius: {
+        DEFAULT: 'var(--radius)',
+        sm: 'var(--radius-sm)',
+        pill: 'var(--radius-pill)',
+      },
+      boxShadow: {
+        100: 'var(--shadow-100)',
+      },
+    },
+  },
+  plugins: [],
+}
