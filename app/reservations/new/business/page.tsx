@@ -6,11 +6,12 @@ import { Button, FieldSelect, Sidebar } from '@/ui';
 import { useReservationWizard } from '@/contexts/ReservationWizardContext';
 import { BUSINESS_PROFILES } from '@/domain/mockReservations';
 import ReservationWizardHeader from '../components/ReservationWizardHeader';
+import { assetPath } from '@/lib/assetPath';
 
 // Illustration component - Person with laptop from Figma
 const PersonIllustration = () => (
   <img
-    src="/illustrations/person-laptop.png"
+    src={assetPath('/illustrations/person-laptop.png')}
     alt=""
     style={{
       width: '225px',
