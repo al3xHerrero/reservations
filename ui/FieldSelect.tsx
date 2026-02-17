@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { FieldCheckbox } from './FieldCheckbox';
 
 const chevronDownIcon = '/icons/chevron-down.svg';
 const chevronDownDisabledIcon = '/icons/chevron-down-disabled.svg';
 const errorIcon = '/icons/error.svg';
-const checkboxCheckIcon = '/icons/checkbox-check.svg';
 
 export type FieldSelectOption = { value: string; label: string };
 
@@ -25,6 +25,8 @@ interface FieldSelectProps {
   defaultOpen?: boolean;
   testId?: string;
   className?: string;
+  /** Custom display value to override the auto-generated one */
+  displayValue?: string;
 }
 
 export function FieldSelect({
@@ -43,17 +45,18 @@ export function FieldSelect({
   defaultOpen = false,
   testId,
   className = '',
+  displayValue,
 }: FieldSelectProps) {
   const internalId = id ?? useId();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const selectedValues = useMemo(() => {
+  const selectedValues = useMemo((): string[] => {
     if (multiple) {
       return Array.isArray(value) ? value : [];
     }
-    return value ? [value] : [];
+    return typeof value === 'string' && value ? [value] : [];
   }, [multiple, value]);
 
   const selectedLabels = useMemo(() => {
@@ -63,8 +66,9 @@ export function FieldSelect({
     return labels.join(', ');
   }, [options, selectedValues]);
 
-  const displayText = selectedLabels || placeholder;
-  const isPlaceholder = selectedLabels.length === 0;
+  // Use displayValue if provided, otherwise use auto-generated labels or placeholder
+  const displayText = displayValue ?? (selectedLabels || placeholder);
+  const isPlaceholder = !displayValue && selectedLabels.length === 0;
 
   const closeMenu = () => setIsOpen(false);
   const toggleMenu = () => {
@@ -187,7 +191,7 @@ export function FieldSelect({
               : undefined,
           }}
         >
-          <div className="relative flex-1 text-left">
+          <div className="relative flex-1 min-w-0 text-left overflow-hidden">
             {label && (
               <span
                 id={`${internalId}-label`}
@@ -247,44 +251,26 @@ export function FieldSelect({
                     aria-selected={selected}
                     onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => handleSelect(option)}
-                    className={`flex w-full items-center text-left text-[length:var(--size-base)] leading-[var(--leading-base)] text-[var(--select-item-text)] ${
-                      isActive ? 'bg-surface-muted' : ''
-                    }`}
+                    className="flex w-full items-center text-left text-[length:var(--size-base)] leading-[var(--leading-base)] text-[var(--select-item-text)]"
                     style={{
                       gap: 'var(--select-item-gap)',
                       paddingInline: 'var(--select-item-padding-inline)',
                       paddingBlock: 'var(--select-item-padding-block)',
                       borderRadius: 'var(--select-item-radius)',
+                      backgroundColor: selected
+                        ? 'var(--palette-primary-100, #e6f4ff)'
+                        : isActive
+                          ? 'var(--palette-neutral-100)'
+                          : 'transparent',
                     }}
                   >
                     {multiple && (
-                      <span
-                        className="flex items-center justify-center"
-                        style={{
-                          width: 'var(--checkbox/input/dimensions/width)',
-                          height: 'var(--checkbox/input/dimensions/height)',
-                          borderRadius: 'var(--checkbox/input/dimensions/radius)',
-                          backgroundColor: selected
-                            ? 'var(--checkbox/input/color/bg/active/default)'
-                            : 'var(--checkbox/input/color/bg/default)',
-                          borderColor: selected
-                            ? 'transparent'
-                            : 'var(--checkbox/input/color/border/default)',
-                          borderWidth: selected ? 0 : 1,
-                          borderStyle: 'solid',
-                        }}
-                      >
-                        {selected && (
-                          <img
-                            alt=""
-                            src={checkboxCheckIcon}
-                            style={{
-                              width: 'var(--checkbox/input/dimensions/icon-width)',
-                              height: 'var(--checkbox/input/dimensions/icon-height)',
-                            }}
-                          />
-                        )}
-                      </span>
+                      <FieldCheckbox
+                        checked={selected}
+                        onChange={() => {}}
+                        showLabel={false}
+                        size="small"
+                      />
                     )}
                     <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
                       {option.label}

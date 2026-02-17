@@ -2,27 +2,54 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { AppShell, Card, Button, Cart, Input, Modal, FlowHeader } from '@/ui';
+import {
+  Button,
+  Cart,
+  Sidebar,
+  FieldInput,
+  FieldCheckbox,
+  Alert,
+  Modal,
+} from '@/ui';
+import type { CartDateGroup, CartBreakdown } from '@/ui';
 import { useReservationWizard } from '@/contexts/ReservationWizardContext';
+import { EVENT_PROFILES } from '@/domain/mockReservations';
+import EventInfoCard from '../components/EventInfoCard';
+import ReservationWizardHeader from '../components/ReservationWizardHeader';
 
 export default function ContactDetailsPage() {
   const router = useRouter();
-  const { state, updateContactInfo, updateOverride } = useReservationWizard();
-  const [contactInfo, setContactInfo] = useState(state.contactInfo);
+  const { state, updateContactInfo, updateOverride, requestCheckoutTransition } = useReservationWizard();
+  
+  // Contact form state
+  const [email, setEmail] = useState(state.contactInfo.email || '');
+  const [firstName, setFirstName] = useState(state.contactInfo.name?.split(' ')[0] || '');
+  const [lastName, setLastName] = useState(state.contactInfo.name?.split(' ').slice(1).join(' ') || '');
+  const [acceptContact, setAcceptContact] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  
+  // Override state
+  const [showOriginalPrices, setShowOriginalPrices] = useState(false);
   const [overrideEnabled, setOverrideEnabled] = useState(state.override?.enabled || false);
   const [overrideMode, setOverrideMode] = useState<'fixed' | 'percentage'>(
     state.override?.mode || 'fixed'
   );
   const [overrideAction, setOverrideAction] = useState<'add' | 'reduce' | 'set_final'>(
-    state.override?.action || 'add'
+    state.override?.action || 'reduce'
   );
   const [overrideValue, setOverrideValue] = useState<string>(
     state.override?.value?.toString() || ''
   );
   const [overrideConcept, setOverrideConcept] = useState(state.override?.concept || '');
-  const [error, setError] = useState<string>('');
+  const [overrideError, setOverrideError] = useState('');
+  
+  // Modal state
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  
+  // Breakdown expansion state
+  const [isBreakdownExpanded, setIsBreakdownExpanded] = useState(true);
 
+  // Calculate cart totals
   const cartTotal = useMemo(() => {
     return state.selectedTickets.reduce(
       (sum, ticket) => sum + ticket.price * ticket.quantity,
@@ -31,27 +58,38 @@ export default function ContactDetailsPage() {
   }, [state.selectedTickets]);
 
   const cartDateLabel = state.selectedDateTime
-    ? new Date(state.selectedDateTime).toLocaleString('en-US', {
-        month: 'short',
+    ? new Date(state.selectedDateTime).toLocaleString('en-GB', {
         day: 'numeric',
+        month: 'short',
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-      })
-    : undefined;
+      }).replace(',', ' -')
+    : '8 Aug 2025 - 10:00';
 
-  const cartItems = state.selectedTickets.map((ticket) => ({
-    id: ticket.ticketTypeId,
-    quantity: ticket.quantity,
-    title: ticket.title,
-    price: ticket.price * ticket.quantity,
-  }));
+  // Check if override has a valid amount
+  const hasValidOverrideAmount = overrideEnabled && overrideValue && parseFloat(overrideValue) > 0;
 
-  const isDateInFuture = useMemo(() => {
-    if (!state.selectedDateTime) return false;
-    return new Date(state.selectedDateTime) > new Date();
-  }, [state.selectedDateTime]);
+  // Build cart date groups
+  const cartDateGroups: CartDateGroup[] = useMemo(() => {
+    if (state.selectedTickets.length === 0) return [];
+    
+    return [{
+      date: cartDateLabel,
+      items: state.selectedTickets.map((ticket) => ({
+        id: ticket.ticketTypeId,
+        quantity: ticket.quantity,
+        title: `Parque | ${ticket.title}`,
+        price: ticket.price * ticket.quantity,
+        // Only include originalPrice when there's a valid override amount
+        originalPrice: hasValidOverrideAmount ? ticket.price * ticket.quantity * 1.5 : undefined,
+        feePerTicket: 0,
+        feeTotal: 0,
+      })),
+    }];
+  }, [state.selectedTickets, cartDateLabel, hasValidOverrideAmount]);
 
+  // Calculate final total with override
   const calculateFinalTotal = () => {
     let total = cartTotal;
     if (overrideEnabled && overrideValue) {
@@ -62,7 +100,6 @@ export default function ContactDetailsPage() {
           else if (overrideAction === 'reduce') total -= value;
           else if (overrideAction === 'set_final') total = value;
         } else {
-          // percentage
           if (overrideAction === 'add') total += (total * value) / 100;
           else if (overrideAction === 'reduce') total -= (total * value) / 100;
           else if (overrideAction === 'set_final') total = (total * value) / 100;
@@ -73,16 +110,68 @@ export default function ContactDetailsPage() {
   };
 
   const finalTotal = calculateFinalTotal();
-  const adjustmentAmount = finalTotal - cartTotal;
+  const adjustmentAmount = overrideEnabled && overrideValue ? parseFloat(overrideValue) || 0 : 0;
+  
+  // Calculate rounding (small adjustment for display purposes)
+  const rounding = overrideEnabled ? -0.01 : 0;
+
+  // Build breakdown
+  const breakdown: CartBreakdown | undefined = useMemo(() => {
+    // When no override, show simple total only (no expandable breakdown)
+    if (!overrideEnabled) {
+      return {
+        reservationValue: cartTotal,
+        totalToPay: cartTotal,
+        totalLabel: 'Total to pay',
+      };
+    }
+    
+    // With override, show expandable breakdown
+    return {
+      reservationValue: cartTotal,
+      override: overrideValue ? {
+        label: 'Override price',
+        value: -adjustmentAmount,
+        description: overrideConcept || 'Concept',
+      } : undefined,
+      totalToPay: finalTotal,
+      totalLabel: 'Total to pay',
+      isExpanded: isBreakdownExpanded,
+      onToggleExpanded: () => setIsBreakdownExpanded((prev) => !prev),
+    };
+  }, [cartTotal, overrideEnabled, overrideValue, overrideConcept, adjustmentAmount, finalTotal, isBreakdownExpanded]);
+
+  // Check if date is in the future
+  const isDateInFuture = useMemo(() => {
+    if (!state.selectedDateTime) return true;
+    return new Date(state.selectedDateTime) > new Date();
+  }, [state.selectedDateTime]);
+
+  const handleClearAll = () => {
+    // Clear all selections - would need to update context
+  };
+
+  const validateAndContinue = () => {
+    // Validate email
+    if (isDateInFuture && !email.trim()) {
+      setEmailError('This field is mandatory');
+      return false;
+    }
+    setEmailError('');
+    if (overrideEnabled && !overrideValue.trim()) {
+      setOverrideError('This field is mandatory');
+      return false;
+    }
+    setOverrideError('');
+    return true;
+  };
 
   const persistAndContinue = () => {
-    // Validation: email required if date is in the future
-    if (isDateInFuture && !contactInfo.email.trim()) {
-      setError('Email is required for future events');
-      return;
-    }
-
-    updateContactInfo(contactInfo);
+    updateContactInfo({
+      name: `${firstName} ${lastName}`.trim(),
+      email,
+      phone: state.contactInfo.phone,
+    });
 
     if (overrideEnabled && overrideValue) {
       updateOverride({
@@ -96,15 +185,12 @@ export default function ContactDetailsPage() {
       updateOverride(null);
     }
 
+    requestCheckoutTransition();
     router.push('/reservations/new/checkout');
   };
 
   const handleContinue = () => {
-    // Validation: email required if date is in the future
-    if (isDateInFuture && !contactInfo.email.trim()) {
-      setError('Email is required for future events');
-      return;
-    }
+    if (!validateAndContinue()) return;
 
     if (overrideEnabled) {
       setIsConfirmOpen(true);
@@ -119,127 +205,263 @@ export default function ContactDetailsPage() {
   };
 
   return (
-    <AppShell className="bg-[var(--bg-page)]" mainClassName="p-0">
-      <FlowHeader
-        breadcrumb={[{ label: 'Reservations', href: '/reservations', underline: true }]}
-        title="Make a reservation"
-      />
-      <div className="px-6 py-6">
-        <div className="mx-auto w-full max-w-[1136px]">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left column - Summary cards */}
-          <div className="lg:col-span-1 space-y-4">
-            {state.selectedEvent && (
-              <Card title="Event">
-                <div className="space-y-2">
-                  <p className="text-text font-medium">{state.selectedEvent.name}</p>
-                  <p className="text-sm text-muted">{state.selectedEvent.venue}</p>
-                </div>
-              </Card>
-            )}
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar activeItem="reservations" activeChild="overview" />
 
-            <Cart
-              title="Cart"
-              dateLabel={cartDateLabel}
-              items={cartItems}
-              emptyState={{
-                title: 'No tickets selected',
-                description: 'Choose event dates and tickets to build the new reservation.',
-              }}
-              overrideConfig={{
-                enabled: overrideEnabled,
-                onToggle: () => setOverrideEnabled((value) => !value),
-                mode: overrideMode,
-                onModeChange: setOverrideMode,
-                action: overrideAction,
-                onActionChange: setOverrideAction,
-                amount: overrideValue,
-                onAmountChange: setOverrideValue,
-                concept: overrideConcept,
-                onConceptChange: setOverrideConcept,
-              }}
-              breakdown={{
-                reservationValue: cartTotal,
-                override:
-                  overrideEnabled && overrideValue
-                    ? {
-                        label: overrideConcept ? `"${overrideConcept}"` : 'Adjustment',
-                        value: adjustmentAmount,
-                        note: overrideConcept || undefined,
+      <div className="flex flex-1 flex-col overflow-hidden">
+
+        <main
+          className="flex-1 overflow-y-auto"
+          style={{ backgroundColor: 'var(--palette-neutral-50)' }}
+        >
+          <ReservationWizardHeader
+            title="Make a Reservation"
+            crumbs={[
+              {
+                label: 'Overview',
+                onNavigate: () => router.push('/reservations'),
+              },
+              {
+                label: 'Business',
+                onNavigate: () => router.push('/reservations/new/business'),
+              },
+              {
+                label: 'Event',
+                onNavigate: () => router.push('/reservations/new/event'),
+              },
+              {
+                label: 'Tickets',
+                onNavigate: handleBack,
+              },
+              { label: 'Contact' },
+            ]}
+          />
+
+          {/* Content */}
+          <div style={{ padding: 'var(--space-6)' }}>
+            <div style={{ maxWidth: '1136px', display: 'flex', gap: '24px' }}>
+              {/* Left Column */}
+              <div style={{ width: '400px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <EventInfoCard
+                  title={state.selectedEvent?.name}
+                  venue={state.selectedEvent?.venue}
+                  address={state.selectedEvent?.address}
+                  thumbnail={state.selectedEvent?.thumbnail}
+                  fallbackName="LIV Golf Chicago 2025 - Hospitality"
+                  fallbackVenue="Bolingbrook Golf Club"
+                  fallbackAddress="12..."
+                  fallbackThumbnail={EVENT_PROFILES[0].thumbnail}
+                />
+
+                {/* Cart with Override */}
+                <Cart
+                  title="Purchase details"
+                  collapsible={false}
+                  showOriginalPricesCheckbox={true}
+                  originalPricesChecked={hasValidOverrideAmount ? showOriginalPrices : false}
+                  onOriginalPricesChange={setShowOriginalPrices}
+                  dateGroups={cartDateGroups}
+                  emptyState={{
+                    title: 'No tickets selected',
+                    description: 'Choose event dates and tickets to build the new reservation.',
+                  }}
+                  overrideConfig={{
+                    enabled: overrideEnabled,
+                    onToggle: () =>
+                      setOverrideEnabled((prev) => {
+                        const next = !prev;
+                        if (!next) {
+                          setOverrideError('');
+                        }
+                        return next;
+                      }),
+                    mode: overrideMode,
+                    onModeChange: setOverrideMode,
+                    action: overrideAction,
+                    onActionChange: setOverrideAction,
+                    amount: overrideValue,
+                    onAmountChange: (value) => {
+                      setOverrideValue(value);
+                      if (overrideError && value.trim()) {
+                        setOverrideError('');
                       }
-                    : undefined,
-                outstandingAmount: finalTotal,
-                outstandingLabel: 'Total',
-                breakdownLinkLabel: 'Hide breakdown',
-              }}
-            />
-          </div>
+                    },
+                    concept: overrideConcept,
+                    onConceptChange: setOverrideConcept,
+                    errors: overrideError ? { amount: overrideError } : undefined,
+                  }}
+                  breakdown={breakdown}
+                  onClearAll={handleClearAll}
+                />
+              </div>
 
-          {/* Right column - Main form */}
-          <div className="lg:col-span-2">
-            <Card title="Contact Details">
-              <div className="space-y-6">
-                {/* Contact information form */}
-                <div className="space-y-4">
-                  <Input
-                    id="name"
-                    label="Name"
-                    type="text"
-                    value={contactInfo.name}
-                    onChange={(e) => setContactInfo({ ...contactInfo, name: e.target.value })}
-                    placeholder="Enter name"
-                  />
-                  <Input
-                    id="email"
-                    label="Email"
-                    type="email"
-                    value={contactInfo.email}
-                    onChange={(e) => setContactInfo({ ...contactInfo, email: e.target.value })}
-                    placeholder="Enter email"
-                    required={isDateInFuture}
-                    error={isDateInFuture && !contactInfo.email.trim() ? 'Email is required' : undefined}
-                  />
-                  <Input
-                    id="phone"
-                    label="Phone (Optional)"
-                    type="tel"
-                    value={contactInfo.phone || ''}
-                    onChange={(e) => setContactInfo({ ...contactInfo, phone: e.target.value })}
-                    placeholder="Enter phone number"
-                  />
-                </div>
+              {/* Right Column - Contact Information */}
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    backgroundColor: 'var(--background-main-default)',
+                    border: '1px solid var(--border-main-default)',
+                    borderRadius: '8px',
+                    padding: 'var(--space-6)',
+                  }}
+                >
+                  <h2
+                    style={{
+                      fontSize: 'var(--size-h4)',
+                      lineHeight: 'var(--leading-h4)',
+                      fontWeight: 'var(--weight-semibold)',
+                      color: 'var(--text-main-default)',
+                      margin: '0 0 var(--space-6) 0',
+                    }}
+                  >
+                    Contact information
+                  </h2>
 
-                {overrideEnabled && overrideValue && (
-                  <div className="p-3 bg-warning/10 border border-warning rounded-lg">
-                    <p className="text-sm text-warning">
-                      This reservation has a modified price
-                    </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+                    {/* Email Field */}
+                    <div>
+                      <div style={{ marginBottom: '4px' }}>
+                        <span
+                          style={{
+                            fontSize: 'var(--size-small)',
+                            fontWeight: 'var(--weight-semibold)',
+                            color: 'var(--text-main-default)',
+                          }}
+                        >
+                          Email
+                        </span>
+                        <span style={{ color: 'var(--text-danger-default)', marginLeft: '2px' }}>*</span>
+                      </div>
+                      <p
+                        style={{
+                          fontSize: 'var(--size-caption)',
+                          color: 'var(--text-subtle-default)',
+                          margin: '0 0 8px 0',
+                        }}
+                      >
+                        Mandatory if tickets are bought for a future date.
+                      </p>
+                      <FieldInput
+                        type="email"
+                        placeholder="contact@example.com"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          if (emailError) setEmailError('');
+                        }}
+                        error={emailError}
+                      />
+                    </div>
+
+                    {/* First Name Field */}
+                    <div>
+                      <div style={{ marginBottom: '8px' }}>
+                        <span
+                          style={{
+                            fontSize: 'var(--size-small)',
+                            fontWeight: 'var(--weight-semibold)',
+                            color: 'var(--text-main-default)',
+                          }}
+                        >
+                          First name
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 'var(--size-small)',
+                            color: 'var(--text-subtle-default)',
+                            marginLeft: '8px',
+                          }}
+                        >
+                          Optional
+                        </span>
+                      </div>
+                      <FieldInput
+                        type="text"
+                        placeholder="First name"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Last Name Field */}
+                    <div>
+                      <div style={{ marginBottom: '8px' }}>
+                        <span
+                          style={{
+                            fontSize: 'var(--size-small)',
+                            fontWeight: 'var(--weight-semibold)',
+                            color: 'var(--text-main-default)',
+                          }}
+                        >
+                          Last name
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 'var(--size-small)',
+                            color: 'var(--text-subtle-default)',
+                            marginLeft: '8px',
+                          }}
+                        >
+                          Optional
+                        </span>
+                      </div>
+                      <FieldInput
+                        type="text"
+                        placeholder="Last name"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Accept Contact Checkbox */}
+                    <FieldCheckbox
+                      checked={acceptContact}
+                      onChange={setAcceptContact}
+                      label="I accept to be contacted for operational issues, to be provided access to digital tickets via the Fever app and to receive a satisfaction survey"
+                    />
+
+                    {/* Warning Alert for Modified Price */}
+                    {overrideEnabled && overrideValue && (
+                      <Alert
+                        title="This reservation has a modified price"
+                        description={`This reservation has a final price of €${finalTotal.toFixed(2)}`}
+                        sentiment="warning"
+                        showCloseButton={false}
+                        titleWeight={400}
+                      />
+                    )}
+
+                    {/* Navigation Buttons */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: 'var(--space-4)',
+                        paddingTop: 'var(--space-4)',
+                      }}
+                    >
+                      <Button variant="secondary" size="lg" onClick={handleBack}>
+                        Back
+                      </Button>
+                      <Button variant="primary" size="lg" onClick={handleContinue}>
+                        Continue
+                      </Button>
+                    </div>
                   </div>
-                )}
-
-                {error && <p className="text-sm text-error">{error}</p>}
-
-                {/* Navigation */}
-                <div className="flex items-center justify-between pt-6 border-t border-border">
-                  <Button variant="secondary" onClick={handleBack}>
-                    Back
-                  </Button>
-                  <Button variant="primary" onClick={handleContinue}>
-                    Continue
-                  </Button>
                 </div>
               </div>
-            </Card>
+            </div>
           </div>
-          </div>
-        </div>
+        </main>
       </div>
+
+      {/* Confirmation Modal */}
       <Modal
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         title="Confirm changes"
         footer={
-          <div className="flex items-center justify-end gap-3">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-3)' }}>
             <Button variant="secondary" onClick={() => setIsConfirmOpen(false)}>
               Review changes
             </Button>
@@ -255,37 +477,77 @@ export default function ContactDetailsPage() {
           </div>
         }
       >
-        <div className="space-y-4">
-          <div className="p-3 bg-warning/10 border border-warning rounded-lg">
-            <p className="text-sm text-warning">
-              This reservation has a modified price
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <Alert
+            title="This reservation has a modified price"
+            sentiment="warning"
+            showCloseButton={false}
+            titleWeight={400}
+          />
+          <div>
+            <p
+              style={{
+                fontSize: 'var(--size-caption)',
+                color: 'var(--text-subtle-default)',
+                margin: 0,
+              }}
+            >
+              Final price
+            </p>
+            <p
+              style={{
+                fontSize: 'var(--size-h3)',
+                fontWeight: 'var(--weight-semibold)',
+                color: 'var(--text-main-default)',
+                margin: '4px 0 0 0',
+              }}
+            >
+              €{finalTotal.toFixed(2)}
             </p>
           </div>
-          <div>
-            <p className="text-sm text-muted">Final price</p>
-            <p className="text-2xl font-semibold text-text">${finalTotal.toFixed(2)}</p>
-          </div>
-          <div className="pt-2 border-t border-border">
-            <p className="text-sm font-medium text-text mb-2">Price breakdown</p>
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted">Reservation value</span>
-                <span className="text-text">${cartTotal.toFixed(2)}</span>
+          <div
+            style={{
+              paddingTop: 'var(--space-4)',
+              borderTop: '1px solid var(--border-main-default)',
+            }}
+          >
+            <p
+              style={{
+                fontSize: 'var(--size-small)',
+                fontWeight: 'var(--weight-semibold)',
+                color: 'var(--text-main-default)',
+                margin: '0 0 var(--space-2) 0',
+              }}
+            >
+              Price breakdown
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: 'var(--size-small)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-subtle-default)' }}>Reservation value</span>
+                <span style={{ color: 'var(--text-main-default)' }}>€{cartTotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted">Adjustment</span>
-                <span className="text-text">
-                  {adjustmentAmount >= 0 ? '+' : '−'}${Math.abs(adjustmentAmount).toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between pt-1 border-t border-border">
-                <span className="font-semibold text-text">Final total</span>
-                <span className="font-semibold text-text">${finalTotal.toFixed(2)}</span>
+              {overrideConcept && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-subtle-default)' }}>"{overrideConcept}"</span>
+                  <span style={{ color: 'var(--text-main-default)' }}>-€{adjustmentAmount.toFixed(2)}</span>
+                </div>
+              )}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  paddingTop: '4px',
+                  borderTop: '1px solid var(--border-main-default)',
+                  fontWeight: 'var(--weight-semibold)',
+                }}
+              >
+                <span style={{ color: 'var(--text-main-default)' }}>Final total</span>
+                <span style={{ color: 'var(--text-main-default)' }}>€{finalTotal.toFixed(2)}</span>
               </div>
             </div>
           </div>
         </div>
       </Modal>
-    </AppShell>
+    </div>
   );
 }

@@ -6,6 +6,7 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   error?: string;
   helperText?: string;
   options: FieldSelectOption[];
+  placeholder?: string;
 }
 
 export function Select({
@@ -18,13 +19,14 @@ export function Select({
   disabled,
   name,
   required,
+  placeholder,
   ...props
 }: SelectProps) {
   return (
     <FieldSelect
       id={props.id}
       label={label}
-      placeholder={props.placeholder}
+      placeholder={placeholder}
       value={(value as string | undefined) ?? ''}
       onChange={(next) => onChange?.({ target: { value: next } } as React.ChangeEvent<HTMLSelectElement>)}
       options={options}
