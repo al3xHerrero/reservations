@@ -2,26 +2,125 @@
 
 import React, { useState } from 'react';
 
-const iconCheckboxCheckDefault = '/icons/checkbox-check.svg';
-const iconCheckboxCheckContrast = '/icons/checkbox-check-contrast.svg';
-const iconCheckboxCheckFocusDefault = '/icons/checkbox-check.svg';
-const iconCheckboxCheckFocusContrast = '/icons/checkbox-check-contrast.svg';
-const iconCheckboxCheckDisabledDefault = '/icons/checkbox-check-disabled.svg';
-const iconCheckboxCheckDisabledContrast = '/icons/checkbox-check-disabled.svg';
+// Design tokens from Figma
+const TOKENS = {
+  dimensions: {
+    width: '16px',
+    height: '16px',
+    radius: '4px',
+    gap: '4px',
+  },
+  typography: {
+    base: {
+      size: '16px',
+      lineHeight: '24px',
+    },
+    small: {
+      size: '14px',
+      lineHeight: '20px',
+    },
+    weight: '400',
+    fontFamily: 'var(--font-body), Montserrat, sans-serif',
+  },
+  colors: {
+    input: {
+      bg: {
+        default: '#ffffff',
+        contrast: '#06232c',
+        disable: {
+          default: '#f2f3f3',
+          contrast: '#2c4751',
+        },
+        danger: {
+          default: '#ffffff',
+          contrast: '#06232c',
+        },
+        active: {
+          default: '#0089e3',
+          contrast: '#0089e3',
+        },
+      },
+      border: {
+        default: '#ccd2d8',
+        contrast: '#536b75',
+        danger: {
+          default: '#eb0052',
+          contrast: '#eb0052',
+        },
+      },
+      fg: {
+        active: '#ffffff',
+        disable: {
+          default: '#a7b2ba',
+          contrast: '#536b75',
+        },
+      },
+    },
+    label: {
+      default: '#031419',
+      contrast: '#ffffff',
+      danger: {
+        default: '#031419',
+        contrast: '#ffffff',
+      },
+      disable: {
+        default: '#a7b2ba',
+        contrast: '#536b75',
+      },
+      active: {
+        default: '#031419',
+        contrast: '#ffffff',
+      },
+    },
+  },
+  shadow: {
+    primary: {
+      default: '0px 0px 0px 4px rgba(0, 121, 202, 0.32)',
+      contrast: '0px 0px 0px 4px rgba(0, 121, 202, 0.64)',
+    },
+    danger: {
+      default: '0px 0px 0px 4px rgba(235, 0, 82, 0.32)',
+      contrast: '0px 0px 0px 4px rgba(235, 0, 82, 0.64)',
+    },
+  },
+};
 
-type CheckboxSize = 'base' | 'small';
-type CheckboxSentiment = 'default' | 'danger';
+// Check icon component
+const CheckIcon = ({ color }: { color: string }) => (
+  <svg width="11" height="8" viewBox="0 0 11 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M1 3.5L4 6.5L10 0.5"
+      stroke={color}
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
-interface FieldCheckboxProps {
+export type CheckboxSize = 'base' | 'small';
+export type CheckboxSentiment = 'default' | 'danger';
+
+export interface FieldCheckboxProps {
+  /** Whether the checkbox is checked */
   checked: boolean;
+  /** Callback when checkbox value changes */
   onChange: (checked: boolean) => void;
+  /** Whether the checkbox is disabled */
   disabled?: boolean;
+  /** Label text */
   label?: string;
+  /** Whether to show the label */
   showLabel?: boolean;
+  /** Use contrast mode (for dark backgrounds) */
   contrast?: boolean;
+  /** Size variant */
   size?: CheckboxSize;
+  /** Sentiment variant */
   sentiment?: CheckboxSentiment;
+  /** Test ID for testing */
   testId?: string;
+  /** Additional class names */
   className?: string;
 }
 
@@ -38,183 +137,133 @@ export function FieldCheckbox({
   className = '',
 }: FieldCheckboxProps) {
   const [isFocused, setIsFocused] = useState(false);
-  const visualState = disabled ? 'disable' : isFocused ? 'focus' : 'rest';
-
-  const labelClasses = [
-    'text-left font-[var(--weight-regular)]',
-    size === 'small'
-      ? 'text-[length:var(--size-small)] leading-[var(--leading-small)]'
-      : 'text-[length:var(--size-base)] leading-[var(--leading-base)]',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  const wrapperClasses = [
-    'flex items-start gap-[var(--checkbox/dimensions/gap)]',
-    className,
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  const inputWrapperClasses = [
-    'flex items-center',
-    size === 'small' ? 'pt-[3px]' : 'pt-[5px]',
-  ].join(' ');
 
   const getBackgroundColor = () => {
-    if (visualState === 'disable') {
-      return checked
-        ? contrast
-          ? 'var(--checkbox/input/color/bg/active/disable/contrast)'
-          : 'var(--checkbox/input/color/bg/active/disable/default)'
-        : contrast
-          ? 'var(--checkbox/input/color/bg/disable/contrast)'
-          : 'var(--checkbox/input/color/bg/disable/default)';
+    if (disabled) {
+      return contrast
+        ? TOKENS.colors.input.bg.disable.contrast
+        : TOKENS.colors.input.bg.disable.default;
     }
     if (checked) {
-      if (visualState === 'focus') {
-        return contrast
-          ? 'var(--checkbox/input/color/bg/active/focus/contrast)'
-          : 'var(--checkbox/input/color/bg/active/focus/default)';
-      }
       return contrast
-        ? 'var(--checkbox/input/color/bg/active/contrast)'
-        : 'var(--checkbox/input/color/bg/active/default)';
+        ? TOKENS.colors.input.bg.active.contrast
+        : TOKENS.colors.input.bg.active.default;
     }
     if (sentiment === 'danger') {
-      if (visualState === 'focus') {
-        return contrast
-          ? 'var(--checkbox/input/color/bg/danger/focus/contrast)'
-          : 'var(--checkbox/input/color/bg/danger/focus/default)';
-      }
       return contrast
-        ? 'var(--checkbox/input/color/bg/danger/contrast)'
-        : 'var(--checkbox/input/color/bg/danger/default)';
-    }
-    if (visualState === 'focus') {
-      return contrast
-        ? 'var(--checkbox/input/color/bg/focus/contrast)'
-        : 'var(--checkbox/input/color/bg/focus/default)';
+        ? TOKENS.colors.input.bg.danger.contrast
+        : TOKENS.colors.input.bg.danger.default;
     }
     return contrast
-      ? 'var(--checkbox/input/color/bg/contrast)'
-      : 'var(--checkbox/input/color/bg/default)';
+      ? TOKENS.colors.input.bg.contrast
+      : TOKENS.colors.input.bg.default;
   };
 
   const getBorderColor = () => {
-    if (visualState === 'disable' || checked) return 'transparent';
+    if (disabled || checked) return 'transparent';
     if (sentiment === 'danger') {
       return contrast
-        ? 'var(--checkbox/input/color/border/danger/contrast)'
-        : 'var(--checkbox/input/color/border/danger/default)';
-    }
-    if (visualState === 'focus') {
-      return contrast
-        ? 'var(--checkbox/input/color/border/focus/contrast)'
-        : 'var(--checkbox/input/color/border/focus/default)';
+        ? TOKENS.colors.input.border.danger.contrast
+        : TOKENS.colors.input.border.danger.default;
     }
     return contrast
-      ? 'var(--checkbox/input/color/border/contrast)'
-      : 'var(--checkbox/input/color/border/default)';
+      ? TOKENS.colors.input.border.contrast
+      : TOKENS.colors.input.border.default;
   };
 
   const getLabelColor = () => {
-    if (visualState === 'disable') {
+    if (disabled) {
       return contrast
-        ? 'var(--checkbox/label/color/disable/contrast)'
-        : 'var(--checkbox/label/color/disable/default)';
+        ? TOKENS.colors.label.disable.contrast
+        : TOKENS.colors.label.disable.default;
     }
     if (checked) {
-      if (visualState === 'focus') {
-        return contrast
-          ? 'var(--checkbox/label/color/active/focus/contrast)'
-          : 'var(--checkbox/label/color/active/focus/default)';
-      }
       return contrast
-        ? 'var(--checkbox/label/color/active/contrast)'
-        : 'var(--checkbox/label/color/active/default)';
+        ? TOKENS.colors.label.active.contrast
+        : TOKENS.colors.label.active.default;
     }
     if (sentiment === 'danger') {
-      if (visualState === 'focus') {
-        return contrast
-          ? 'var(--checkbox/label/color/danger/focus/contrast)'
-          : 'var(--checkbox/label/color/danger/focus/default)';
-      }
       return contrast
-        ? 'var(--checkbox/label/color/danger/contrast)'
-        : 'var(--checkbox/label/color/danger/default)';
-    }
-    if (visualState === 'focus') {
-      return contrast
-        ? 'var(--checkbox/label/color/focus/contrast)'
-        : 'var(--checkbox/label/color/focus/default)';
+        ? TOKENS.colors.label.danger.contrast
+        : TOKENS.colors.label.danger.default;
     }
     return contrast
-      ? 'var(--checkbox/label/color/contrast)'
-      : 'var(--checkbox/label/color/default)';
+      ? TOKENS.colors.label.contrast
+      : TOKENS.colors.label.default;
+  };
+
+  const getCheckIconColor = () => {
+    if (disabled) {
+      return contrast
+        ? TOKENS.colors.input.fg.disable.contrast
+        : TOKENS.colors.input.fg.disable.default;
+    }
+    return TOKENS.colors.input.fg.active;
   };
 
   const getFocusShadow = () => {
-    if (visualState !== 'focus' || disabled) return 'none';
-    return sentiment === 'danger'
-      ? contrast
-        ? 'var(--shadow/accessibility/danger/focus/contrast)'
-        : 'var(--shadow/accessibility/danger/focus/default)'
-      : contrast
-        ? 'var(--shadow/accessibility/primary/focus/contrast)'
-        : 'var(--shadow/accessibility/primary/focus/default)';
+    if (!isFocused || disabled) return 'none';
+    if (sentiment === 'danger') {
+      return contrast
+        ? TOKENS.shadow.danger.contrast
+        : TOKENS.shadow.danger.default;
+    }
+    return contrast
+      ? TOKENS.shadow.primary.contrast
+      : TOKENS.shadow.primary.default;
   };
 
-  const getCheckIcon = () => {
-    if (!checked || visualState === 'disable') {
-      return contrast ? iconCheckboxCheckDisabledContrast : iconCheckboxCheckDisabledDefault;
-    }
-    if (visualState === 'focus') {
-      return contrast ? iconCheckboxCheckFocusContrast : iconCheckboxCheckFocusDefault;
-    }
-    return contrast ? iconCheckboxCheckContrast : iconCheckboxCheckDefault;
-  };
+  const typographyTokens = size === 'small' ? TOKENS.typography.small : TOKENS.typography.base;
 
   return (
-    <label className={wrapperClasses} data-testid={testId}>
-      <span className={inputWrapperClasses}>
+    <label
+      className={`flex items-start cursor-pointer ${disabled ? 'cursor-not-allowed' : ''} ${className}`}
+      style={{ gap: TOKENS.dimensions.gap }}
+      data-testid={testId}
+    >
+      {/* Hidden checkbox input */}
+      <span
+        className="flex items-center"
+        style={{ paddingTop: size === 'small' ? '3px' : '5px' }}
+      >
         <input
           type="checkbox"
           className="sr-only"
           checked={checked}
-          onChange={(event) => onChange(event.target.checked)}
+          onChange={(event) => !disabled && onChange(event.target.checked)}
           disabled={disabled}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
         />
+        
+        {/* Visual checkbox */}
         <span
           aria-hidden="true"
-          className="flex items-center justify-center"
+          className="flex items-center justify-center shrink-0 transition-colors"
           style={{
-            width: 'var(--checkbox/input/dimensions/width)',
-            height: 'var(--checkbox/input/dimensions/height)',
-            borderRadius: 'var(--checkbox/input/dimensions/radius)',
+            width: TOKENS.dimensions.width,
+            height: TOKENS.dimensions.height,
+            borderRadius: TOKENS.dimensions.radius,
             backgroundColor: getBackgroundColor(),
-            borderColor: getBorderColor(),
-            borderWidth: checked || visualState === 'disable' ? 0 : 1,
-            borderStyle: 'solid',
+            border: checked || disabled ? 'none' : `1px solid ${getBorderColor()}`,
             boxShadow: getFocusShadow(),
           }}
         >
-          {checked && (
-            <img
-              alt=""
-              src={getCheckIcon()}
-              style={{
-                width: 'var(--checkbox/input/dimensions/icon-width)',
-                height: 'var(--checkbox/input/dimensions/icon-height)',
-              }}
-            />
-          )}
+          {checked && <CheckIcon color={getCheckIconColor()} />}
         </span>
       </span>
-      {showLabel && (
-        <span className={labelClasses} style={{ color: getLabelColor() }}>
+
+      {/* Label */}
+      {showLabel && label && (
+        <span
+          style={{
+            fontSize: typographyTokens.size,
+            lineHeight: typographyTokens.lineHeight,
+            fontWeight: TOKENS.typography.weight,
+            fontFamily: TOKENS.typography.fontFamily,
+            color: getLabelColor(),
+          }}
+        >
           {label}
         </span>
       )}

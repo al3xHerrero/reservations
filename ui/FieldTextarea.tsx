@@ -1,8 +1,11 @@
-import React from 'react';
+'use client';
+
+import React, { useState } from 'react';
 
 interface FieldTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   error?: string;
   wrapperClassName?: string;
+  label?: string;
 }
 
 export function FieldTextarea({
@@ -10,12 +13,21 @@ export function FieldTextarea({
   disabled,
   wrapperClassName = '',
   className = '',
+  label,
+  value,
+  onFocus,
+  onBlur,
   ...props
 }: FieldTextareaProps) {
+  const [isFocused, setIsFocused] = useState(false);
   const hasError = Boolean(error);
+  const hasValue = value !== undefined && value !== '';
+  const showFloatingLabel = label && (isFocused || hasValue);
+
   const textareaClasses = [
     'h-[var(--textarea-height)] w-full resize-none rounded-[var(--dimensions-radii)] border',
-    'bg-[var(--background-main-default)] px-[var(--textarea-padding-inline)] py-[var(--textarea-padding-block)]',
+    'bg-[var(--background-main-default)] px-[var(--textarea-padding-inline)]',
+    label ? 'pt-[24px] pb-[8px]' : 'py-[var(--textarea-padding-block)]',
     'text-[length:var(--size-base)] font-[var(--weight-regular)] leading-[var(--leading-base)]',
     disabled ? 'text-[var(--text-subtle-default)]' : 'text-[var(--text-main-default)]',
     'placeholder:text-[var(--text-subtle-default)]',
@@ -27,9 +39,46 @@ export function FieldTextarea({
     .filter(Boolean)
     .join(' ');
 
+  const handleFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    setIsFocused(true);
+    onFocus?.(e);
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    setIsFocused(false);
+    onBlur?.(e);
+  };
+
   return (
     <div className={`relative w-full ${wrapperClassName}`}>
-      <textarea {...props} disabled={disabled} aria-invalid={hasError || undefined} className={textareaClasses} />
+      {/* Floating label */}
+      {showFloatingLabel && (
+        <span
+          style={{
+            position: 'absolute',
+            left: '12px',
+            top: '8px',
+            fontSize: '12px',
+            lineHeight: '16px',
+            fontWeight: 600,
+            color: '#536b75',
+            pointerEvents: 'none',
+            zIndex: 1,
+          }}
+        >
+          {label}
+        </span>
+      )}
+      <textarea
+        {...props}
+        value={value}
+        disabled={disabled}
+        aria-invalid={hasError || undefined}
+        className={textareaClasses}
+        placeholder={!showFloatingLabel && label ? label : props.placeholder}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+      />
       <div
         className="pointer-events-none absolute bottom-[var(--textarea-handle-offset)] right-[var(--textarea-handle-offset)] size-[var(--textarea-handle-size-1)]"
         aria-hidden="true"

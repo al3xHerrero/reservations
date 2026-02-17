@@ -1,72 +1,78 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AppShell, Card, Button, Input, Select, Badge, FlowHeader } from '@/ui';
+import { Button, FieldSelect, Tag, Sidebar } from '@/ui';
 import { useReservationWizard } from '@/contexts/ReservationWizardContext';
+import { EVENT_PROFILES, EventProfile } from '@/domain/mockReservations';
+import ReservationWizardHeader from '../components/ReservationWizardHeader';
 
-// Mock events
-const mockEvents = [
-  {
-    id: '1',
-    name: 'Jazz Night',
-    venue: 'Blue Note',
-    address: '123 Music St',
-    city: 'New York',
-    dates: ['2024-12-20T20:00:00', '2024-12-21T20:00:00'],
-    state: 'active' as const,
-  },
-  {
-    id: '2',
-    name: 'Rock Concert',
-    venue: 'Madison Square Garden',
-    address: '4 Pennsylvania Plaza',
-    city: 'New York',
-    dates: ['2024-12-25T19:00:00'],
-    state: 'active' as const,
-  },
-  {
-    id: '3',
-    name: 'Classical Evening',
-    venue: 'Carnegie Hall',
-    address: '881 7th Ave',
-    city: 'New York',
-    dates: ['2024-12-18T19:30:00'],
-    state: 'not_for_sale' as const,
-  },
-  {
-    id: '4',
-    name: 'Comedy Show',
-    venue: 'Comedy Cellar',
-    address: '117 MacDougal St',
-    city: 'New York',
-    dates: ['2024-12-22T21:00:00'],
-    state: 'active' as const,
-  },
+const getCityOptions = (events: EventProfile[]) => [
+  { value: '', label: 'City' },
+  ...Array.from(new Set(events.map((event) => event.city))).map((city) => ({
+    value: city,
+    label: city,
+  })),
 ];
+
+const buildEventOptions = (events: EventProfile[], targetCity: string) => {
+  const baseLabel = targetCity ? 'Select an event' : 'Select a city and search for an event';
+  const available = events.filter((event) => !targetCity || event.city === targetCity);
+  const uniqueNames = Array.from(new Set(available.map((event) => event.name)));
+  return [
+    { value: '', label: baseLabel },
+    ...uniqueNames.map((name) => ({ value: name, label: name })),
+  ];
+};
+
+const buildVenueOptions = (events: EventProfile[], targetCity: string, targetEvent: string) => {
+  const baseLabel = 'Venue';
+  let available = events.filter((event) => event.city === targetCity);
+  if (targetEvent) {
+    available = available.filter((event) => event.name === targetEvent);
+  }
+  const uniqueVenues = Array.from(new Set(available.map((event) => event.venue)));
+  return [
+    { value: '', label: baseLabel },
+    ...uniqueVenues.map((venue) => ({ value: venue, label: venue })),
+  ];
+};
 
 export default function EventSelectionPage() {
   const router = useRouter();
-  const { state, updateEvent } = useReservationWizard();
+  const { updateEvent } = useReservationWizard();
+  const events = EVENT_PROFILES;
   const [cityFilter, setCityFilter] = useState<string>('');
+  const [eventFilter, setEventFilter] = useState<string>('');
   const [venueFilter, setVenueFilter] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const cities = Array.from(new Set(mockEvents.map((e) => e.city)));
-  const venues = Array.from(new Set(mockEvents.map((e) => e.venue)));
+  const cityOptions = useMemo(() => getCityOptions(events), [events]);
+  const eventOptions = useMemo(() => buildEventOptions(events, cityFilter), [events, cityFilter]);
+  const venueOptions = useMemo(
+    () => buildVenueOptions(events, cityFilter, eventFilter),
+    [events, cityFilter, eventFilter]
+  );
 
-  const filteredEvents = mockEvents.filter((event) => {
-    const matchesCity = !cityFilter || event.city === cityFilter;
-    const matchesVenue = !venueFilter || event.venue === venueFilter;
-    const matchesSearch =
-      !searchQuery ||
-      event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.venue.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCity && matchesVenue && matchesSearch;
-  });
+  const filteredEvents = useMemo(() => {
+    return events.filter((event) => {
+      if (cityFilter && event.city !== cityFilter) return false;
+      if (eventFilter && event.name !== eventFilter) return false;
+      if (venueFilter && event.venue !== venueFilter) return false;
+      return true;
+    });
+  }, [events, cityFilter, eventFilter, venueFilter]);
 
-  const handleEventSelect = (event: typeof mockEvents[0]) => {
-    updateEvent(event);
+  const handleEventSelect = (event: EventProfile) => {
+    updateEvent({
+      id: event.id,
+      name: event.name,
+      venue: event.venue,
+      address: event.venueAddress,
+      city: event.city,
+      dates: [event.startDate],
+      state: event.state ?? 'active',
+      thumbnail: event.thumbnail,
+    });
     router.push('/reservations/new/tickets');
   };
 
@@ -74,126 +80,367 @@ export default function EventSelectionPage() {
     router.push('/reservations/new/business');
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   return (
-    <AppShell className="bg-[var(--bg-page)]" mainClassName="p-0">
-      <FlowHeader
-        breadcrumb={[{ label: 'Reservations', href: '/reservations', underline: true }]}
-        title="Make a reservation"
-      />
-      <div className="px-6 py-6">
-        <div className="mx-auto w-full max-w-[1136px]">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left column - Summary cards */}
-          <div className="lg:col-span-1 space-y-4">
-            {state.selectedBusiness && (
-              <Card title="Business">
-                <div className="space-y-2">
-                  <p className="text-text font-medium">{state.selectedBusiness.name}</p>
-                  <p className="text-sm text-muted">{state.selectedBusiness.email}</p>
-                </div>
-              </Card>
-            )}
+    <div className="flex h-screen overflow-hidden">
+      {/* Sidebar */}
+      <Sidebar activeItem="reservations" activeChild="overview" />
+
+      {/* Main content */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+
+        {/* Page content */}
+        <main
+          className="flex-1 overflow-y-auto"
+          style={{ backgroundColor: 'var(--palette-neutral-50)' }}
+        >
+        <ReservationWizardHeader
+          title="Make a Reservation"
+          crumbs={[
+            {
+              label: 'Overview',
+              onNavigate: () => router.push('/reservations'),
+            },
+            {
+              label: 'Business',
+              onNavigate: handleBack,
+            },
+            { label: 'Event' },
+          ]}
+        >
+          <div
+            className="flex items-end"
+            style={{ gap: 'var(--space-4)' }}
+          >
+            {/* City Select */}
+            <div style={{ width: '140px', flexShrink: 0 }}>
+              <FieldSelect
+                label="City"
+                placeholder="City"
+                value={cityFilter}
+                onChange={(v) => {
+                  const next = v as string;
+                  setCityFilter(next);
+                  setEventFilter('');
+                  setVenueFilter('');
+                }}
+                options={cityOptions}
+              />
+            </div>
+
+            {/* Event Select */}
+            <div className="flex-1 min-w-0">
+              <FieldSelect
+                label="Select a city and search for an event"
+                placeholder="Select a city and search for an event"
+                value={eventFilter}
+                onChange={(v) => {
+                  const next = v as string;
+                  setEventFilter(next);
+                  setVenueFilter('');
+                }}
+                options={eventOptions}
+              />
+            </div>
+
+            {/* Venue Select */}
+            <div style={{ width: '200px', flexShrink: 0 }}>
+              <FieldSelect
+                label="Venue"
+                placeholder="Venue"
+                value={venueFilter}
+                onChange={(v) => setVenueFilter(v as string)}
+                options={venueOptions}
+              />
+            </div>
           </div>
+        </ReservationWizardHeader>
 
-          {/* Right column - Main form */}
-          <div className="lg:col-span-2">
-            <Card title="Select Event">
-              <div className="space-y-4">
-                {/* Filter bar */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Select
-                    id="city"
-                    label="City"
-                    value={cityFilter}
-                    onChange={(e) => setCityFilter(e.target.value)}
-                    options={[
-                      { value: '', label: 'All Cities' },
-                      ...cities.map((city) => ({ value: city, label: city })),
-                    ]}
-                  />
-                  <Select
-                    id="venue"
-                    label="Venue"
-                    value={venueFilter}
-                    onChange={(e) => setVenueFilter(e.target.value)}
-                    options={[
-                      { value: '', label: 'All Venues' },
-                      ...venues.map((venue) => ({ value: venue, label: venue })),
-                    ]}
-                  />
-                  <Input
-                    id="search"
-                    label="Search"
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search events..."
-                  />
+          {/* Card Container */}
+          <div style={{ padding: 'var(--space-6)' }}>
+            <div
+              style={{
+                maxWidth: '1136px',
+                backgroundColor: 'var(--background-main-default)',
+                border: '1px solid var(--border-main-default)',
+                borderRadius: '8px',
+                padding: 'var(--space-6)',
+              }}
+            >
+              {/* Header */}
+              <div style={{ marginBottom: 'var(--space-4)' }}>
+                <h2
+                  style={{
+                    fontSize: 'var(--size-h2)',
+                    lineHeight: 'var(--leading-h2)',
+                    fontWeight: 'var(--weight-semibold)',
+                    color: 'var(--text-main-default)',
+                    fontFamily: 'var(--font-body)',
+                    margin: 0,
+                  }}
+                >
+                  Available events
+                </h2>
+                <p
+                  style={{
+                    fontSize: 'var(--size-base)',
+                    lineHeight: 'var(--leading-base)',
+                    fontWeight: 'var(--weight-regular)',
+                    color: 'var(--text-subtle-default)',
+                    fontFamily: 'var(--font-body)',
+                    margin: '4px 0 0 0',
+                  }}
+                >
+                  Select an available event and start a new reservation
+                </p>
+              </div>
+
+              {/* Results count */}
+              <div style={{ marginBottom: 'var(--space-4)' }}>
+                <span
+                  style={{
+                    fontSize: 'var(--size-small)',
+                    fontWeight: 'var(--weight-semibold)',
+                    color: 'var(--action-text-primary-default)',
+                    fontFamily: 'var(--font-body)',
+                  }}
+                >
+                  {filteredEvents.length}
+                </span>
+                <span
+                  style={{
+                    fontSize: 'var(--size-small)',
+                    fontWeight: 'var(--weight-regular)',
+                    color: 'var(--text-subtle-default)',
+                    fontFamily: 'var(--font-body)',
+                    marginLeft: '4px',
+                  }}
+                >
+                  events with the filters applied
+                </span>
+              </div>
+
+              {/* Events Table */}
+              <div style={{ marginLeft: '-24px', marginRight: '-24px' }}>
+                {/* Table Header */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '12px 24px',
+                    borderTop: '1px solid var(--border-main-default)',
+                    borderBottom: '1px solid var(--border-main-default)',
+                    backgroundColor: 'var(--palette-neutral-50)',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span
+                      style={{
+                        fontSize: 'var(--size-caption)',
+                        fontWeight: 'var(--weight-semibold)',
+                        color: 'var(--text-subtle-default)',
+                        fontFamily: 'var(--font-body)',
+                      }}
+                    >
+                      Event <span style={{ opacity: 0.5 }}>↑↓</span>
+                    </span>
+                  </div>
+                  <div style={{ width: '140px', flexShrink: 0, textAlign: 'left' }}>
+                    <span
+                      style={{
+                        fontSize: 'var(--size-caption)',
+                        fontWeight: 'var(--weight-semibold)',
+                        color: 'var(--text-subtle-default)',
+                        fontFamily: 'var(--font-body)',
+                      }}
+                    >
+                      Dates <span style={{ opacity: 0.5 }}>↑↓</span>
+                    </span>
+                  </div>
+                  <div style={{ width: '100px', flexShrink: 0, textAlign: 'left' }}>
+                    <span
+                      style={{
+                        fontSize: 'var(--size-caption)',
+                        fontWeight: 'var(--weight-semibold)',
+                        color: 'var(--text-subtle-default)',
+                        fontFamily: 'var(--font-body)',
+                      }}
+                    >
+                      State <span style={{ opacity: 0.5 }}>↑↓</span>
+                    </span>
+                  </div>
                 </div>
 
-                {/* Events list */}
-                <div className="space-y-3 mt-6">
-                  {filteredEvents.length === 0 ? (
-                    <p className="text-center text-muted py-8">No events found</p>
-                  ) : (
-                    filteredEvents.map((event) => (
+                {/* Table Body */}
+                {filteredEvents.length === 0 ? (
+                  <div
+                    style={{
+                      padding: '48px 24px',
+                      textAlign: 'center',
+                      color: 'var(--text-subtle-default)',
+                    }}
+                  >
+                    No events found
+                  </div>
+                ) : (
+                  filteredEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      className="cursor-pointer transition-colors"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '16px 24px',
+                        borderBottom: '1px solid var(--border-main-default)',
+                      }}
+                      onClick={() => handleEventSelect(event)}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.backgroundColor = 'var(--palette-neutral-100)')
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.backgroundColor = 'transparent')
+                      }
+                    >
+                      {/* Event info */}
                       <div
-                        key={event.id}
-                        className="p-4 border border-border rounded-lg hover:bg-surface cursor-pointer transition-colors"
-                        onClick={() => handleEventSelect(event)}
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '12px',
+                        }}
                       >
-                        <div className="flex items-start gap-4">
-                          <div className="w-16 h-16 bg-surface rounded flex items-center justify-center flex-shrink-0">
-                            <span className="text-2xl">🎵</span>
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="text-lg font-semibold text-text">{event.name}</h3>
-                              <Badge
-                                variant={event.state === 'active' ? 'success' : 'warning'}
+                        {/* Event image */}
+                        <div
+                          style={{
+                            width: '56px',
+                            height: '56px',
+                            borderRadius: '12px',
+                            overflow: 'hidden',
+                            flexShrink: 0,
+                            backgroundColor: 'var(--palette-neutral-100)',
+                          }}
+                        >
+                          <img
+                            src={event.thumbnail}
+                            alt={event.name}
+                            loading="lazy"
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              display: 'block',
+                            }}
+                          />
+                        </div>
+
+                        {/* Event details */}
+                        <div style={{ minWidth: 0 }}>
+                          <p
+                            style={{
+                              fontSize: 'var(--size-h6)',
+                              lineHeight: 'var(--leading-h6)',
+                              fontWeight: 'var(--weight-semibold)',
+                              color: 'var(--text-main-default)',
+                              fontFamily: 'var(--font-body)',
+                              margin: 0,
+                            }}
+                          >
+                            {event.name}
+                          </p>
+
+                          {event.venue && (
+                            <>
+                              <p
+                                style={{
+                                  fontSize: 'var(--size-caption)',
+                                  lineHeight: 'var(--leading-caption)',
+                                  color: 'var(--text-subtle-default)',
+                                  fontFamily: 'var(--font-body)',
+                                  margin: '2px 0 0 0',
+                                }}
                               >
-                                {event.state === 'active' ? 'Active' : 'Not for sale'}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-text">
-                              {event.venue} • {event.address}
-                            </p>
-                            <div className="mt-2 space-y-1">
-                              {event.dates.map((date, idx) => (
-                                <p key={idx} className="text-sm text-muted">
-                                  {formatDate(date)}
-                                </p>
-                              ))}
-                            </div>
-                          </div>
+                                {event.city} - {event.venue}
+                              </p>
+                              <p
+                                style={{
+                                  fontSize: 'var(--size-caption)',
+                                  lineHeight: 'var(--leading-caption)',
+                                  color: 'var(--text-subtle-default)',
+                                  fontFamily: 'var(--font-body)',
+                                  margin: '0',
+                                }}
+                              >
+                              {event.venueAddress}
+                              </p>
+                            </>
+                          )}
+
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
 
-                {/* Navigation */}
-                <div className="flex items-center justify-between pt-6 border-t border-border">
-                  <Button variant="secondary" onClick={handleBack}>
-                    Back
-                  </Button>
+                      {/* Dates */}
+                      <div style={{ width: '140px', flexShrink: 0 }}>
+                        <p
+                          style={{
+                            fontSize: 'var(--size-small)',
+                            lineHeight: 'var(--leading-small)',
+                            color: 'var(--text-main-default)',
+                            fontFamily: 'var(--font-body)',
+                            margin: 0,
+                          }}
+                        >
+                          {event.startDate}
+                        </p>
+                        <p
+                          style={{
+                            fontSize: 'var(--size-small)',
+                            lineHeight: 'var(--leading-small)',
+                            color: 'var(--text-main-default)',
+                            fontFamily: 'var(--font-body)',
+                            margin: 0,
+                          }}
+                        >
+                          {event.endDate}
+                        </p>
+                      </div>
+
+                      {/* State */}
+                      <div style={{ width: '100px', flexShrink: 0 }}>
+                        <Tag
+                          sentiment={event.state === 'active' ? 'positive' : 'disabled'}
+                          tagStyle="outline"
+                        >
+                          {event.state === 'active' ? 'Active' : 'Inactive'}
+                        </Tag>
+                      </div>
+                    </div>
+                  ))
+                )}
+
+                {/* End of list */}
+                <div
+                  style={{
+                    padding: '16px 24px',
+                    textAlign: 'center',
+                    borderBottom: '1px solid var(--border-main-default)',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 'var(--size-caption)',
+                      color: 'var(--text-subtle-default)',
+                      fontFamily: 'var(--font-body)',
+                    }}
+                  >
+                    End of the list
+                  </span>
                 </div>
               </div>
-            </Card>
+            </div>
           </div>
-          </div>
-        </div>
+        </main>
       </div>
-    </AppShell>
+    </div>
   );
 }

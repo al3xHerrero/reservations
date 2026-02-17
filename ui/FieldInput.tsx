@@ -36,7 +36,7 @@ const TOKENS = {
   labelError: '#eb0052',
   shadowError: '0px 0px 0px 4px rgba(235, 0, 82, 0.32)',
   // Typography
-  fontFamily: 'Montserrat, sans-serif',
+  fontFamily: 'var(--font-body)',
   labelSizeRest: '16px',
   labelSizeFocus: '12px',
   labelLineHeightRest: '24px',

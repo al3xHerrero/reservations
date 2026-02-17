@@ -2,33 +2,22 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AppShell, Card, Button, FieldSelect, FlowHeader } from '@/ui';
+import { Button, FieldSelect, Sidebar } from '@/ui';
 import { useReservationWizard } from '@/contexts/ReservationWizardContext';
+import { BUSINESS_PROFILES } from '@/domain/mockReservations';
+import ReservationWizardHeader from '../components/ReservationWizardHeader';
 
-// Mock businesses
-const mockBusinesses = [
-  {
-    id: '1',
-    name: 'Business A',
-    email: 'businessa@example.com',
-    bookingAgentType: 'Internal',
-    balanceAllowed: true,
-  },
-  {
-    id: '2',
-    name: 'Business B',
-    email: 'businessb@example.com',
-    bookingAgentType: 'External',
-    balanceAllowed: false,
-  },
-  {
-    id: '3',
-    name: 'Business C',
-    email: 'businessc@example.com',
-    bookingAgentType: 'Internal',
-    balanceAllowed: true,
-  },
-];
+// Illustration component - Person with laptop from Figma
+const PersonIllustration = () => (
+  <img
+    src="/illustrations/person-laptop.png"
+    alt=""
+    style={{
+      width: '225px',
+      height: 'auto',
+    }}
+  />
+);
 
 export default function BusinessSelectionPage() {
   const router = useRouter();
@@ -38,106 +27,220 @@ export default function BusinessSelectionPage() {
   );
   const [error, setError] = useState<string>('');
 
-  const selectedBusiness = mockBusinesses.find((b) => b.id === selectedBusinessId);
+  const selectedBusiness = BUSINESS_PROFILES.find((b) => b.id === selectedBusinessId);
 
-  const businessOptions = mockBusinesses.map((b) => ({ value: b.id, label: b.name }));
+  const businessOptions = [
+    { value: '', label: 'Business name' },
+    ...BUSINESS_PROFILES.map((b) => ({ value: b.id, label: b.name })),
+  ];
 
   const handleContinue = () => {
     if (!selectedBusiness) {
-      setError('Please select a business to continue');
+      setError('This field is mandatory');
       return;
     }
     updateBusiness(selectedBusiness);
     router.push('/reservations/new/event');
   };
 
-  const handleBack = () => {
+  const handleCancel = () => {
     router.push('/reservations');
   };
 
   return (
-    <AppShell className="bg-[var(--bg-page)]" mainClassName="p-0">
-      <FlowHeader
-        breadcrumb={[{ label: 'Reservations', href: '/reservations', underline: true }]}
-        title="Make a reservation"
-      />
-      <div className="px-6 py-6">
-        <div className="mx-auto w-full max-w-[1136px]">
-          <Card>
-            <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold text-text">Select a business</h2>
-              <p className="text-sm text-muted">
-                In order to create a reservation, you must select a business.
-              </p>
-            </div>
+    <div className="flex h-screen overflow-hidden">
+      {/* Sidebar */}
+      <Sidebar activeItem="reservations" activeChild="overview" />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
-              <div className="space-y-5">
-                <FieldSelect
-                  id="business"
-                  label="Business name"
-                  placeholder="Select a business..."
-                  value={selectedBusinessId}
-                  onChange={(nextValue) => {
-                    setSelectedBusinessId(nextValue as string);
-                    setError('');
+      {/* Main content */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+
+        {/* Page content */}
+        <main
+          className="flex-1 overflow-y-auto"
+          style={{ backgroundColor: 'var(--palette-neutral-50)' }}
+        >
+          <ReservationWizardHeader
+            title="Make a Reservation"
+            crumbs={[
+              {
+                label: 'Overview',
+                onNavigate: () => router.push('/reservations'),
+              },
+              { label: 'Business' },
+            ]}
+          />
+
+          {/* Card Container */}
+          <div style={{ padding: 'var(--space-6)' }}>
+            <div
+              style={{
+                maxWidth: '1136px',
+                position: 'relative',
+                backgroundColor: 'var(--background-main-default)',
+                border: '1px solid var(--border-main-default)',
+                borderRadius: '8px',
+                padding: '16px 16px 16px 24px',
+                minHeight: '469px',
+              }}
+            >
+              {/* Header */}
+              <div style={{ marginBottom: '24px' }}>
+                <h2
+                  style={{
+                    fontSize: 'var(--size-h3)',
+                    lineHeight: 'var(--leading-h3)',
+                    fontWeight: 'var(--weight-semibold)',
+                    color: 'var(--text-main-default)',
+                    fontFamily: 'var(--font-body)',
+                    margin: 0,
                   }}
-                  options={businessOptions}
-                  error={error}
-                />
-
-                {selectedBusiness && (
-                  <div className="space-y-4">
-                    <div>
-                      <span className="text-xs font-semibold text-muted uppercase">
-                        Business email
-                      </span>
-                      <p className="text-text">{selectedBusiness.email}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs font-semibold text-muted uppercase">
-                        Booking agent type
-                      </span>
-                      <p className="text-text capitalize">{selectedBusiness.bookingAgentType}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs font-semibold text-muted uppercase">
-                        Balance allowed
-                      </span>
-                      <p className="text-text">{selectedBusiness.balanceAllowed ? 'Yes' : 'No'}</p>
-                    </div>
-                  </div>
-                )}
+                >
+                  Select a business
+                </h2>
+                <p
+                  style={{
+                    fontSize: 'var(--size-base)',
+                    lineHeight: 'var(--leading-base)',
+                    fontWeight: 'var(--weight-regular)',
+                    color: 'var(--text-subtle-default)',
+                    fontFamily: 'var(--font-body)',
+                    margin: '4px 0 0 0',
+                  }}
+                >
+                  In order to create a reservation, you must select a business.
+                </p>
               </div>
 
-              <div className="hidden lg:flex items-center justify-center">
-                <div className="w-40 h-40 rounded-full bg-surface flex items-center justify-center">
-                  <img
-                    src="/illustrations/torso.svg"
-                    alt="Person illustration"
-                    className="w-28 h-28"
+              {/* Content - Two columns */}
+              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                {/* Left column - Form */}
+                <div style={{ width: '530px', flexShrink: 0 }}>
+                  <FieldSelect
+                    label="Business name"
+                    placeholder="Business name"
+                    value={selectedBusinessId}
+                    onChange={(nextValue) => {
+                      setSelectedBusinessId(nextValue as string);
+                      setError('');
+                    }}
+                    options={businessOptions}
+                    error={error}
                   />
+
+                  {/* Show business details when selected */}
+                  {selectedBusiness && (
+                    <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div>
+                        <span
+                          style={{
+                            fontSize: 'var(--size-caption)',
+                            fontWeight: 'var(--weight-semibold)',
+                            color: 'var(--text-subtle-default)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                          }}
+                        >
+                          Business email
+                        </span>
+                        <p
+                          style={{
+                            fontSize: 'var(--size-base)',
+                            color: 'var(--text-main-default)',
+                            margin: '4px 0 0 0',
+                          }}
+                        >
+                          {selectedBusiness.email}
+                        </p>
+                      </div>
+                      <div>
+                        <span
+                          style={{
+                            fontSize: 'var(--size-caption)',
+                            fontWeight: 'var(--weight-semibold)',
+                            color: 'var(--text-subtle-default)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                          }}
+                        >
+                          Booking agent type
+                        </span>
+                        <p
+                          style={{
+                            fontSize: 'var(--size-base)',
+                            color: 'var(--text-main-default)',
+                            margin: '4px 0 0 0',
+                          }}
+                        >
+                          {selectedBusiness.bookingAgentType}
+                        </p>
+                      </div>
+                      <div>
+                        <span
+                          style={{
+                            fontSize: 'var(--size-caption)',
+                            fontWeight: 'var(--weight-semibold)',
+                            color: 'var(--text-subtle-default)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                          }}
+                        >
+                          Balance allowed
+                        </span>
+                        <p
+                          style={{
+                            fontSize: 'var(--size-base)',
+                            color: 'var(--text-main-default)',
+                            margin: '4px 0 0 0',
+                          }}
+                        >
+                          {selectedBusiness.balanceAllowed ? 'Yes' : 'No'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right column - Illustration */}
+                <div
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: '300px',
+                  }}
+                >
+                  <PersonIllustration />
                 </div>
               </div>
-            </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
-              <Button variant="secondary" onClick={handleBack}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleContinue}
-                disabled={!selectedBusiness}
+              {/* Buttons - Bottom right */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '15px',
+                  right: '15px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-6)',
+                }}
               >
-                Select business
-              </Button>
+                <Button variant="secondary" size="lg" onClick={handleCancel}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={handleContinue}
+                >
+                  Select business
+                </Button>
+              </div>
             </div>
-            </div>
-          </Card>
-        </div>
+          </div>
+        </main>
       </div>
-    </AppShell>
+    </div>
   );
 }

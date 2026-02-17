@@ -94,6 +94,12 @@ export interface Reservation {
   numberOfTickets?: number; // Number of tickets (can use numberOfGuests as fallback)
   attendanceConfirmed?: boolean; // Whether arrival has been confirmed
   
+  // Location fields
+  city?: string; // City where the event takes place
+  venue?: string; // Venue name
+  eventImage?: string; // Event image URL
+  venueAddress?: string; // Optional full venue address
+  
   // Metadata
   createdAt: Date;
   updatedAt: Date;

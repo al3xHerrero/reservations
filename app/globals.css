@@ -3,6 +3,122 @@
 @tailwind utilities;
 
 :root {
+  /* ========================================
+     IGNITE DESIGN SYSTEM - PRIMITIVES
+     Source: fvds-design-tokens
+     ======================================== */
+
+  /* --- Spacing Scale (primitives/dimensions/space) --- */
+  --ignt-space-0: 0px;
+  --ignt-space-100: 4px;
+  --ignt-space-200: 8px;
+  --ignt-space-300: 12px;
+  --ignt-space-400: 16px;
+  --ignt-space-600: 24px;
+  --ignt-space-800: 32px;
+  --ignt-space-1000: 40px;
+  --ignt-space-1200: 48px;
+  --ignt-space-1400: 56px;
+  --ignt-space-1600: 64px;
+
+  /* Spacing aliases for backward compatibility */
+  --space-0: var(--ignt-space-0);
+  --space-1: var(--ignt-space-100);
+  --space-2: var(--ignt-space-200);
+  --space-3: var(--ignt-space-300);
+  --space-4: var(--ignt-space-400);
+  --space-6: var(--ignt-space-600);
+  --space-8: var(--ignt-space-800);
+  --space-10: var(--ignt-space-1000);
+  --space-12: var(--ignt-space-1200);
+  --space-14: var(--ignt-space-1400);
+  --space-16: var(--ignt-space-1600);
+
+  /* --- Border Radius Scale (primitives/dimensions/border-radius) --- */
+  --ignt-radius-0: 0px;
+  --ignt-radius-100: 4px;
+  --ignt-radius-200: 8px;
+  --ignt-radius-300: 12px;
+  --ignt-radius-400: 16px;
+  --ignt-radius-500: 20px;
+  --ignt-radius-600: 24px;
+  --ignt-radius-full: 64px;
+
+  /* Border radius aliases */
+  --radius-none: var(--ignt-radius-0);
+  --radius-sm: var(--ignt-radius-100);
+  --radius-md: var(--ignt-radius-200);
+  --radius-lg: var(--ignt-radius-300);
+  --radius-xl: var(--ignt-radius-400);
+  --radius-2xl: var(--ignt-radius-500);
+  --radius-3xl: var(--ignt-radius-600);
+  --radius-full: var(--ignt-radius-full);
+
+  /* --- Font Sizes (primitives/fonts/font-size) --- */
+  --ignt-font-size-xs: 12px;
+  --ignt-font-size-sm: 14px;
+  --ignt-font-size-md: 16px;
+  --ignt-font-size-lg: 18px;
+  --ignt-font-size-xl: 20px;
+  --ignt-font-size-2xl: 24px;
+  --ignt-font-size-3xl: 28px;
+  --ignt-font-size-display: 48px;
+
+  /* Font size aliases */
+  --size-caption: var(--ignt-font-size-xs);
+  --size-small: var(--ignt-font-size-sm);
+  --size-base: var(--ignt-font-size-md);
+  --size-lg: var(--ignt-font-size-lg);
+  --size-xl: var(--ignt-font-size-xl);
+  --size-2xl: var(--ignt-font-size-2xl);
+  --size-3xl: var(--ignt-font-size-3xl);
+  --size-display: var(--ignt-font-size-display);
+  /* Legacy aliases */
+  --font-size-xs: var(--ignt-font-size-xs);
+  --font-size-sm: var(--ignt-font-size-sm);
+  --font-size-md: var(--ignt-font-size-md);
+  --font-size-lg: var(--ignt-font-size-lg);
+  --font-size-xl: var(--ignt-font-size-xl);
+
+  /* --- Line Heights (primitives/fonts/line-height) --- */
+  --ignt-line-height-400: 16px;
+  --ignt-line-height-500: 20px;
+  --ignt-line-height-600: 24px;
+  --ignt-line-height-700: 28px;
+  --ignt-line-height-800: 32px;
+  --ignt-line-height-1000: 40px;
+  --ignt-line-height-1400: 56px;
+
+  /* Line height aliases */
+  --leading-caption: var(--ignt-line-height-400);
+  --leading-small: var(--ignt-line-height-500);
+  --leading-base: var(--ignt-line-height-600);
+  --leading-lg: var(--ignt-line-height-700);
+  --leading-xl: var(--ignt-line-height-800);
+  --leading-2xl: var(--ignt-line-height-1000);
+  --leading-display: var(--ignt-line-height-1400);
+
+  /* --- Font Weights --- */
+  --ignt-font-weight-regular: 400;
+  --ignt-font-weight-medium: 500;
+  --ignt-font-weight-semibold: 600;
+  --ignt-font-weight-bold: 700;
+
+  /* Font weight aliases */
+  --weight-regular: var(--ignt-font-weight-regular);
+  --weight-medium: var(--ignt-font-weight-medium);
+  --weight-semibold: var(--ignt-font-weight-semibold);
+  --weight-bold: var(--ignt-font-weight-bold);
+
+  /* --- Font Family --- */
+  --ignt-font-family: 'Montserrat', sans-serif;
+  --font-body: var(--ignt-font-family);
+  --font-heading: var(--ignt-font-family);
+
+  /* ========================================
+     END IGNITE PRIMITIVES
+     ======================================== */
+
   /* Background colors */
   --bg: #f2f3f3; /* palette.neutral.100 */
   --surface: #ffffff; /* palette.neutral.white */
@@ -40,6 +156,55 @@
   --button-min-width-small: 64px;
   --button-gap: 4px;
   
+  /* Alert/Notification tokens from Figma */
+  --notification-gap: 8px;
+  --notification-gap-content: 4px;
+  --notification-padding-inline: 12px;
+  --notification-padding-block: 8px;
+  --notification-radii: 8px;
+  --notification-bar-width: 4px;
+  --notification-icon-size: 24px;
+
+  /* Alert colors - Info */
+  --notification-info-fg-default: #0068b0;
+  --notification-info-bg-default: #e6f4ff;
+  --notification-info-bar-default: #0068b0;
+  --notification-info-fg-contrast: #e6f4ff;
+  --notification-info-bg-contrast: #0068b0;
+  --notification-info-bar-contrast: #39a5ee;
+
+  /* Alert colors - Accent */
+  --notification-accent-fg-default: #6f41d7;
+  --notification-accent-bg-default: #f0ebfd;
+  --notification-accent-bar-default: #6f41d7;
+  --notification-accent-fg-contrast: #f0ebfd;
+  --notification-accent-bg-contrast: #522da5;
+  --notification-accent-bar-contrast: #8e69e3;
+
+  /* Alert colors - Positive */
+  --notification-positive-fg-default: #18824c;
+  --notification-positive-bg-default: #e8f8f0;
+  --notification-positive-bar-default: #18824c;
+  --notification-positive-fg-contrast: #ffffff;
+  --notification-positive-bg-contrast: #18824c;
+  --notification-positive-bar-contrast: #53be88;
+
+  /* Alert colors - Warning */
+  --notification-warning-fg-default: #9f5800;
+  --notification-warning-bg-default: #fff4e6;
+  --notification-warning-bar-default: #9f5800;
+  --notification-warning-fg-contrast: #031419;
+  --notification-warning-bg-contrast: #ffa639;
+  --notification-warning-bar-contrast: #bf6a00;
+
+  /* Alert colors - Danger */
+  --notification-danger-fg-default: #b6003c;
+  --notification-danger-bg-default: #fff0f4;
+  --notification-danger-bar-default: #b6003c;
+  --notification-danger-fg-contrast: #fff0f4;
+  --notification-danger-bg-contrast: #b6003c;
+  --notification-danger-bar-contrast: #f43d7a;
+
   /* Pills tokens from Figma */
   --pills-height: 40px;
   --pills-radii: 64px;
@@ -59,15 +224,75 @@
   --field-placeholder: #a7b2ba;
   --field-label: #536b75;
   --field-value: #031419;
+  --field-border-danger: #eb0052;
+  --field-label-danger: #eb0052;
+  
+  /* Helper text tokens from Figma */
+  --helper-gap: 4px;
+  --helper-padding-inline-start: 12px;
+  --helper-padding-block-start: 4px;
+  --helper-color-danger: #eb0052;
+
+  /* Icon dimensions (Ignite) */
+  --ignt-icon-size-caption: 16px;
+  --ignt-icon-size-base: 20px;
+  --ignt-icon-size-lg: 24px;
+  /* Icon aliases */
+  --icon-size-sm: var(--ignt-icon-size-caption);
+  --icon-size-md: var(--ignt-icon-size-base);
+  --icon-size-lg: var(--ignt-icon-size-lg);
   
   /* Tag tokens from Figma */
-  --tag-info-bg: transparent;
-  --tag-info-border: #0089e3;
-  --tag-info-fg: #0079ca;
+  /* Tag dimensions */
+  --tag-height: 20px;
   --tag-radii: 4px;
   --tag-padding-inline: 4px;
+  --tag-padding-block: 2px;
   --tag-min-width: 48px;
   --tag-gap: 4px;
+  --tag-icon-size: 16px;
+
+  /* Tag colors - Positive */
+  --tag-positive-solid-bg: #24a865;
+  --tag-positive-solid-fg: #ffffff;
+  --tag-positive-outline-border: #24a865;
+  --tag-positive-outline-fg: #18824c;
+
+  /* Tag colors - Danger */
+  --tag-danger-solid-bg: #eb0052;
+  --tag-danger-solid-fg: #ffffff;
+  --tag-danger-outline-border: #eb0052;
+  --tag-danger-outline-fg: #eb0052;
+
+  /* Tag colors - Warning */
+  --tag-warning-solid-bg: #df7b00;
+  --tag-warning-solid-fg: #031419;
+  --tag-warning-outline-border: #bf6a00;
+  --tag-warning-outline-fg: #9f5800;
+
+  /* Tag colors - Accent */
+  --tag-accent-solid-bg: #6f41d7;
+  --tag-accent-solid-fg: #ffffff;
+  --tag-accent-outline-border: #6f41d7;
+  --tag-accent-outline-fg: #6f41d7;
+
+  /* Tag colors - Info */
+  --tag-info-solid-bg: #73bff6;
+  --tag-info-solid-fg: #031419;
+  --tag-info-outline-border: #0089e3;
+  --tag-info-outline-fg: #0079ca;
+
+  /* Tag colors - Disabled */
+  --tag-disabled-solid-bg: #f2f3f3;
+  --tag-disabled-solid-fg: #536b75;
+  --tag-disabled-outline-border: #f2f3f3;
+  --tag-disabled-outline-fg: #a7b2ba;
+
+  /* Tag colors - Sharp */
+  --tag-sharp-solid-bg: #06232c;
+  --tag-sharp-solid-fg: #ffffff;
+  --tag-sharp-outline-border: #06232c;
+  --tag-sharp-outline-fg: #031419;
   
   /* Table tokens */
   --table-header-bg: #fafbfb;
@@ -121,16 +346,26 @@
   --palette-warning-800: #9f5800;
   --palette-warning-900: #804700;
   
-  /* Success (Green) */
-  --palette-success-100: #e8f8f0;
-  --palette-success-200: #b5e6cd;
-  --palette-success-300: #83d3aa;
-  --palette-success-400: #53be88;
-  --palette-success-500: #24a865;
-  --palette-success-600: #1e9558;
-  --palette-success-700: #18824c;
-  --palette-success-800: #126d3f;
-  --palette-success-900: #0d5932;
+  /* Positive/Success (Green) - Ignite uses "positive" */
+  --palette-positive-100: #e8f8f0;
+  --palette-positive-200: #b5e6cd;
+  --palette-positive-300: #83d3aa;
+  --palette-positive-400: #53be88;
+  --palette-positive-500: #24a865;
+  --palette-positive-600: #1e9558;
+  --palette-positive-700: #18824c;
+  --palette-positive-800: #126d3f;
+  --palette-positive-900: #0d5932;
+  /* Success aliases for backward compatibility */
+  --palette-success-100: var(--palette-positive-100);
+  --palette-success-200: var(--palette-positive-200);
+  --palette-success-300: var(--palette-positive-300);
+  --palette-success-400: var(--palette-positive-400);
+  --palette-success-500: var(--palette-positive-500);
+  --palette-success-600: var(--palette-positive-600);
+  --palette-success-700: var(--palette-positive-700);
+  --palette-success-800: var(--palette-positive-800);
+  --palette-success-900: var(--palette-positive-900);
   
   /* Neutral (Gray) */
   --palette-neutral-100: #f2f3f3;
@@ -205,9 +440,62 @@
   --action-border-danger-contrast: #f43d7a;
   --action-border-danger-hover-contrast: #fb78a1;
 
-  /* --- Shadows --- */
-  --shadow-100-default: 0px 3px 3px 0px rgba(0, 70, 121, 0.2);
-  --shadow-100-contrast: 0px 3px 3px 0px rgba(3, 20, 25, 0.8);
+  /* --- Shadows (Ignite nomenclature) --- */
+  --ignt-shadow-100-default: 0px 3px 3px 0px rgba(0, 70, 121, 0.2);
+  --ignt-shadow-100-contrast: 0px 3px 3px 0px rgba(3, 20, 25, 0.8);
+  --ignt-shadow-200-default: 0px 6px 6px 0px rgba(0, 70, 121, 0.2);
+  --ignt-shadow-300-default: 0px 12px 12px 0px rgba(0, 70, 121, 0.2);
+  --ignt-shadow-accessibility-primary-focus: 0px 0px 0px 4px rgba(0, 121, 202, 0.32);
+  --ignt-shadow-accessibility-danger-focus: 0px 0px 0px 4px rgba(235, 0, 82, 0.32);
+  --ignt-shadow-accessibility-positive-focus: 0px 0px 0px 4px rgba(36, 168, 101, 0.32);
+
+  /* Shadow aliases */
+  --shadow-100-default: var(--ignt-shadow-100-default);
+  --shadow-100-contrast: var(--ignt-shadow-100-contrast);
+  --shadow-200-default: var(--ignt-shadow-200-default);
+  --shadow-300-default: var(--ignt-shadow-300-default);
+  --shadow-focus-primary: var(--ignt-shadow-accessibility-primary-focus);
+  --shadow-focus-danger: var(--ignt-shadow-accessibility-danger-focus);
+  --shadow-focus-positive: var(--ignt-shadow-accessibility-positive-focus);
+
+  /* --- Semantic Text Colors (from Ignite color-semantics) --- */
+  --ignt-color-text-main: var(--palette-neutral-800);
+  --ignt-color-text-main-contrast: var(--palette-neutral-white);
+  --ignt-color-text-subtle: var(--palette-neutral-500);
+  --ignt-color-text-subtle-contrast: var(--palette-neutral-300);
+  --ignt-color-text-primary: var(--palette-primary-600);
+  --ignt-color-text-accent: var(--palette-accent-500);
+  --ignt-color-text-positive: var(--palette-positive-700);
+  --ignt-color-text-positive-contrast: var(--palette-positive-500);
+  --ignt-color-text-warning: var(--palette-warning-800);
+  --ignt-color-text-warning-contrast: var(--palette-warning-400);
+  --ignt-color-text-danger: var(--palette-danger-500);
+  --ignt-color-text-danger-contrast: var(--palette-danger-400);
+
+  /* --- Semantic Background Colors (from Ignite) --- */
+  --ignt-color-background-main: var(--palette-neutral-white);
+  --ignt-color-background-main-contrast: var(--palette-neutral-700);
+  --ignt-color-background-subtle-weak: var(--palette-neutral-100);
+  --ignt-color-background-subtle-base: var(--palette-neutral-500);
+  --ignt-color-background-primary-weak: var(--palette-primary-100);
+  --ignt-color-background-primary-base: var(--palette-primary-500);
+  --ignt-color-background-positive-weak: var(--palette-positive-100);
+  --ignt-color-background-positive-base: var(--palette-positive-500);
+  --ignt-color-background-warning-weak: var(--palette-warning-100);
+  --ignt-color-background-warning-base: var(--palette-warning-600);
+  --ignt-color-background-danger-weak: var(--palette-danger-100);
+  --ignt-color-background-danger-base: var(--palette-danger-500);
+  --ignt-color-background-accent-weak: var(--palette-accent-100);
+  --ignt-color-background-accent-base: var(--palette-accent-500);
+
+  /* --- Semantic Border Colors (from Ignite) --- */
+  --ignt-color-border-main: var(--palette-neutral-200);
+  --ignt-color-border-main-contrast: var(--palette-neutral-500);
+  --ignt-color-border-primary-base: var(--palette-primary-500);
+  --ignt-color-border-positive-base: var(--palette-positive-500);
+  --ignt-color-border-warning-base: var(--palette-warning-600);
+  --ignt-color-border-danger-base: var(--palette-danger-500);
+  --ignt-color-border-accent-base: var(--palette-accent-500);
 
   /* ========================================
      END SEMANTIC TOKENS
@@ -474,8 +762,8 @@
      ======================================== */
 
   /* Font Stacks */
-  --font-heading: 'Montserrat', sans-serif;
-  --font-body: 'Montserrat', sans-serif;
+  --font-heading: var(--font-montserrat), 'Montserrat', sans-serif;
+  --font-body: var(--font-montserrat), 'Montserrat', sans-serif;
 
   /* Font Weights */
   --weight-regular: 400;
@@ -1142,21 +1430,34 @@
   --input-dimensions-radii: 8px;
   --input-dimensions-padding-inline: 12px;
 
-  /* Spacing scale */
+  /* Spacing scale (from Figma) */
   --space-0: 0px;
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
-  --space-10: 2.5rem;
-  --space-12: 3rem;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
 }
 
 body {
-  font-family: var(--font-sans);
-  color: var(--text);
-  background: var(--bg);
+  font-family: var(--font-montserrat), 'Montserrat', sans-serif;
+  color: var(--text-main-default);
+  background: var(--background-main-default);
+}
+
+/* Cart empty state flash animation */
+@keyframes cartFlash {
+  0% {
+    border-color: var(--border-main-default);
+  }
+  50% {
+    border-color: var(--palette-danger-500);
+  }
+  100% {
+    border-color: var(--palette-danger-500);
+  }
 }

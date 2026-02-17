@@ -1,32 +1,452 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReservationStatus } from '@/domain/reservation';
-import { getAllReservations } from '@/domain/mockReservations';
+import { EVENT_PROFILES, getAllReservations } from '@/domain/mockReservations';
 import {
-  Badge,
   Button,
   FieldSelect,
-  FieldInput,
   FieldSearch,
   Sidebar,
-  TopBar,
+  Tag,
+  IconCircleCheck,
+  IconCircleExclamation,
+  IconCalendar,
+  IconChevronDown,
+  IconChevronLeft,
+  IconChevronRight,
+  IconXmark,
+  IconClipboardList,
 } from '@/ui';
+import { TOPBAR_HEIGHT } from '@/ui/TopBar';
 
-// Icons
-const iconCalendar = '/icons/calendar.svg';
-const iconChevronDown = '/icons/chevron-down.svg';
-const iconExport = '/icons/sidebar/orders.svg';
+// Status options for multi-select
+const STATUS_OPTIONS = [
+  { value: 'to_be_paid', label: 'To be paid' },
+  { value: 'paid', label: 'Paid' },
+  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'expired', label: 'Expired' },
+];
+
+// Business type options for multi-select
+const BUSINESS_TYPE_OPTIONS = [
+  { value: 'agency', label: 'Agency' },
+  { value: 'educational', label: 'Educational' },
+  { value: 'guide', label: 'Guide' },
+  { value: 'cultural', label: 'Cultural' },
+  { value: 'corporate', label: 'Corporate' },
+  { value: 'large_group', label: 'Large Group' },
+  { value: 'premium_services', label: 'Premium Services' },
+  { value: 'sales_representative', label: 'Sales Representative' },
+  { value: 'internal_operations', label: 'Internal Operations' },
+  { value: 'partnerships', label: 'Partnerships' },
+  { value: 'internal_comps', label: 'Internal Comps' },
+  { value: 'invitations', label: 'Invitations' },
+];
+
+// =============================================================================
+// Date Picker Modal Component
+// =============================================================================
+
+type QuickFilter = 'today' | 'this_month' | 'next_3_months' | null;
+
+interface DateRange {
+  start: Date | null;
+  end: Date | null;
+}
+
+interface DatePickerModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  dateRange: DateRange;
+  quickFilter: QuickFilter;
+  onApply: (range: DateRange, quick: QuickFilter) => void;
+}
+
+function DatePickerModal({ isOpen, onClose, dateRange, quickFilter, onApply }: DatePickerModalProps) {
+  const [selectedQuickFilter, setSelectedQuickFilter] = useState<QuickFilter>(quickFilter);
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const quickFilters: { value: QuickFilter; label: string }[] = [
+    { value: 'today', label: 'Today' },
+    { value: 'this_month', label: 'This month' },
+    { value: 'next_3_months', label: 'Next 3 months' },
+  ];
+
+  // Week starts on Sunday
+  const getMonthDays = (year: number, month: number) => {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay(); // Sunday = 0
+
+    const days: (Date | null)[] = [];
+    
+    // Add empty slots for days before the first day
+    for (let i = 0; i < startDayOfWeek; i++) {
+      days.push(null);
+    }
+    
+    // Add all days of the month
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(new Date(year, month, i));
+    }
+
+    return days;
+  };
+
+  const formatMonthYear = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
+
+  const isToday = (date: Date) => {
+    return date.toDateString() === today.toDateString();
+  };
+
+  const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+
+  const handlePrevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
+
+  const handleQuickFilterClick = (filter: QuickFilter) => {
+    setSelectedQuickFilter(filter);
+  };
+
+  const handleShowResults = () => {
+    // Calculate date range based on quick filter
+    let range: DateRange = { start: null, end: null };
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    if (selectedQuickFilter === 'today') {
+      range = { start: now, end: now };
+    } else if (selectedQuickFilter === 'this_month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      range = { start, end };
+    } else if (selectedQuickFilter === 'next_3_months') {
+      const start = now;
+      const end = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate());
+      range = { start, end };
+    }
+
+    onApply(range, selectedQuickFilter);
+    onClose();
+  };
+
+  const handleClearDates = () => {
+    onApply({ start: null, end: null }, null);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  // Weekday labels starting with Sunday
+  const weekDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+  const renderCalendarMonth = (monthDate: Date, showLeftNav: boolean, showRightNav: boolean) => {
+    const days = getMonthDays(monthDate.getFullYear(), monthDate.getMonth());
+    // Pad days to always have 6 rows (42 cells)
+    while (days.length < 42) {
+      days.push(null);
+    }
+
+    return (
+      <div style={{ flex: 1 }}>
+        {/* Month Header with Navigation */}
+        <div
+          className="flex items-center justify-between"
+          style={{
+            padding: '8px 0',
+            marginBottom: '0',
+          }}
+        >
+          {/* Left navigation (only on first month) */}
+          {showLeftNav ? (
+            <button
+              onClick={handlePrevMonth}
+              className="flex items-center justify-center transition-colors"
+              style={{
+                width: '20px',
+                height: '20px',
+                border: 'none',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+              }}
+            >
+              <IconChevronLeft size={14} color="var(--text-main-default)" />
+            </button>
+          ) : (
+            <div style={{ width: '20px' }} />
+          )}
+
+          {/* Month Title */}
+          <span
+            style={{
+              fontSize: 'var(--size-small)',
+              fontWeight: 'var(--weight-semibold)',
+              color: 'var(--text-main-default)',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
+            {formatMonthYear(monthDate)}
+          </span>
+
+          {/* Right navigation (only on second month) */}
+          {showRightNav ? (
+            <button
+              onClick={handleNextMonth}
+              className="flex items-center justify-center transition-colors"
+              style={{
+                width: '20px',
+                height: '20px',
+                border: 'none',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+              }}
+            >
+              <IconChevronRight size={14} color="var(--text-main-default)" />
+            </button>
+          ) : (
+            <div style={{ width: '20px' }} />
+          )}
+        </div>
+
+        {/* Week Days Header */}
+        <div
+          className="flex items-center justify-between"
+          style={{
+            padding: '8px',
+            borderTop: '1px solid var(--border-main-default)',
+            borderBottom: '1px solid var(--border-main-default)',
+          }}
+        >
+          {weekDays.map((day, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-center"
+              style={{
+                width: '40px',
+                fontSize: '10px',
+                fontWeight: 'var(--weight-semibold)',
+                color: 'var(--text-subtle-default)',
+                fontFamily: 'var(--font-body)',
+                textTransform: 'uppercase',
+              }}
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* Days Grid */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(7, 1fr)',
+            gap: '8px',
+            padding: '16px 8px',
+          }}
+        >
+          {days.map((day, i) => {
+            const isTodayDate = day && isToday(day);
+            
+            return (
+              <div
+                key={i}
+                className="flex items-center justify-center"
+                style={{
+                  width: '45px',
+                  height: '48px',
+                  borderRadius: '4px',
+                  fontSize: 'var(--size-base)',
+                  fontWeight: 'var(--weight-semibold)',
+                  color: day
+                    ? isTodayDate
+                      ? 'var(--palette-neutral-white)'
+                      : 'var(--text-main-default)'
+                    : 'transparent',
+                  backgroundColor: isTodayDate
+                    ? 'var(--palette-neutral-700)'
+                    : 'transparent',
+                  fontFamily: 'var(--font-body)',
+                  cursor: day ? 'pointer' : 'default',
+                  opacity: day ? 1 : 0,
+                }}
+              >
+                {day?.getDate() || ''}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
+      onClick={onClose}
+    >
+      <div
+        className="flex flex-col"
+        style={{
+          width: '846px',
+          backgroundColor: 'var(--background-main-default)',
+          borderRadius: 'var(--dimensions-radii)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.16)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between"
+          style={{
+            padding: '24px',
+            borderBottom: '1px solid var(--border-main-default)',
+          }}
+        >
+          <span
+            style={{
+              fontSize: 'var(--size-h4)',
+              fontWeight: 'var(--weight-semibold)',
+              color: 'var(--text-main-default)',
+              fontFamily: 'var(--font-body)',
+              marginLeft: '8px',
+            }}
+          >
+            Date
+          </span>
+          <button
+            onClick={onClose}
+            className="flex items-center justify-center transition-colors"
+            style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '4px',
+              border: 'none',
+              backgroundColor: 'transparent',
+              cursor: 'pointer',
+            }}
+          >
+            <IconXmark size={20} color="var(--text-subtle-default)" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{ padding: '16px 24px 24px' }}>
+          {/* Quick Filters */}
+          <div
+            className="flex items-center"
+            style={{
+              gap: '8px',
+              marginBottom: '24px',
+            }}
+          >
+            {quickFilters.map((filter) => (
+              <button
+                key={filter.value}
+                onClick={() => handleQuickFilterClick(filter.value)}
+                style={{
+                  padding: '6px 12px',
+                  height: '32px',
+                  borderRadius: '64px',
+                  border: '1px solid var(--border-main-default)',
+                  backgroundColor:
+                    selectedQuickFilter === filter.value
+                      ? 'var(--palette-neutral-700)'
+                      : 'var(--background-main-default)',
+                  color:
+                    selectedQuickFilter === filter.value
+                      ? 'var(--palette-neutral-white)'
+                      : 'var(--text-main-default)',
+                  fontSize: 'var(--size-small)',
+                  fontWeight: 'var(--weight-semibold)',
+                  fontFamily: 'var(--font-body)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Calendars */}
+          <div
+            className="flex"
+            style={{
+              gap: '40px',
+              paddingBottom: '24px',
+              borderBottom: '1px solid var(--border-main-default)',
+            }}
+          >
+            {/* Month 1 - with left navigation */}
+            {renderCalendarMonth(currentMonth, true, false)}
+
+            {/* Month 2 - with right navigation */}
+            {renderCalendarMonth(nextMonth, false, true)}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div
+          className="flex items-center justify-between"
+          style={{
+            padding: '24px',
+          }}
+        >
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={handleClearDates}
+          >
+            <span className="flex items-center" style={{ gap: '8px' }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5.5 2V1H10.5V2H14V3H2V2H5.5ZM3 4H13L12.5 14H3.5L3 4ZM6 6V12H7V6H6ZM9 6V12H10V6H9Z" fill="currentColor"/>
+              </svg>
+              Clear dates
+            </span>
+          </Button>
+          <Button variant="primary" size="lg" onClick={handleShowResults}>
+            Show results
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Main Page Component
+// =============================================================================
 
 export default function ReservationsPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('paid,to_be_paid');
+  const [statusFilter, setStatusFilter] = useState<string[]>(['to_be_paid', 'paid']);
   const [cityFilter, setCityFilter] = useState<string>('');
   const [eventFilter, setEventFilter] = useState<string>('');
   const [venueFilter, setVenueFilter] = useState<string>('');
-  const [businessTypeFilter, setBusinessTypeFilter] = useState<string>('');
+  const [businessTypeFilter, setBusinessTypeFilter] = useState<string[]>([]);
+  
+  // Date filter state
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
+  const [quickDateFilter, setQuickDateFilter] = useState<QuickFilter>('next_3_months');
 
   const reservations = useMemo(() => {
     try {
@@ -43,34 +463,91 @@ export default function ReservationsPage() {
         );
       }
 
-      if (statusFilter && statusFilter !== 'all') {
-        const statuses = statusFilter.split(',');
+      if (statusFilter.length > 0) {
         filtered = filtered.filter((res) => {
-          if (statuses.includes('paid') && res.status === ReservationStatus.PAID) return true;
-          if (statuses.includes('to_be_paid') && res.status === ReservationStatus.TO_BE_PAID) return true;
-          if (statuses.includes('cancelled') && res.status === ReservationStatus.CANCELLED) return true;
-          if (statuses.includes('expired') && res.status === ReservationStatus.EXPIRED) return true;
+          if (statusFilter.includes('paid') && res.status === ReservationStatus.PAID) return true;
+          if (statusFilter.includes('to_be_paid') && res.status === ReservationStatus.TO_BE_PAID) return true;
+          if (statusFilter.includes('cancelled') && res.status === ReservationStatus.CANCELLED) return true;
+          if (statusFilter.includes('expired') && res.status === ReservationStatus.EXPIRED) return true;
           return false;
         });
+      }
+
+      // Date filter
+      if (dateRange.start && dateRange.end) {
+        filtered = filtered.filter((res) => {
+          const eventDate = res.dateTime ? new Date(res.dateTime) : res.checkInDate;
+          const d = new Date(eventDate);
+          d.setHours(0, 0, 0, 0);
+          return d >= dateRange.start! && d <= dateRange.end!;
+        });
+      }
+
+      // Business type filter (multi-select)
+      if (businessTypeFilter.length > 0) {
+        filtered = filtered.filter((res) => {
+          // Normalize the reservation's business type
+          const resType = res.bookingAgentType?.toLowerCase().replace(/\s+/g, '_') || '';
+          // Check if it matches any of the selected filters
+          return businessTypeFilter.some((filterType) => {
+            const normalizedFilter = filterType.toLowerCase().replace(/\s+/g, '_');
+            return resType === normalizedFilter;
+          });
+        });
+      }
+
+      // City filter
+      if (cityFilter && cityFilter !== '') {
+        filtered = filtered.filter((res) => res.city === cityFilter);
+      }
+
+      // Event filter
+      if (eventFilter && eventFilter !== '') {
+        filtered = filtered.filter((res) => (res.eventName || res.experienceName) === eventFilter);
+      }
+
+      // Venue filter
+      if (venueFilter && venueFilter !== '') {
+        filtered = filtered.filter((res) => res.venue === venueFilter);
       }
 
       return filtered;
     } catch {
       return [];
     }
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, dateRange, businessTypeFilter, cityFilter, eventFilter, venueFilter]);
 
-  const getStatusBadge = (status: ReservationStatus) => {
+  const getStatusTag = (status: ReservationStatus): { 
+    label: string; 
+    sentiment: 'positive' | 'warning' | 'danger' | 'disabled';
+    icon: React.ReactNode;
+  } => {
     if (status === ReservationStatus.PAID) {
-      return { label: 'Paid', variant: 'success' as const };
+      return { 
+        label: 'Paid', 
+        sentiment: 'positive',
+        icon: <IconCircleCheck color="#ffffff" />,
+      };
     }
     if (status === ReservationStatus.TO_BE_PAID) {
-      return { label: 'To be paid', variant: 'warning' as const };
+      return { 
+        label: 'To be paid', 
+        sentiment: 'warning',
+        icon: <IconCircleExclamation color="#ffffff" />,
+      };
     }
     if (status === ReservationStatus.CANCELLED) {
-      return { label: 'Cancelled', variant: 'neutral' as const };
+      return { 
+        label: 'Cancelled', 
+        sentiment: 'disabled',
+        icon: null,
+      };
     }
-    return { label: 'Expired', variant: 'neutral' as const };
+    return { 
+      label: 'Expired', 
+      sentiment: 'disabled',
+      icon: null,
+    };
   };
 
   const formatDate = (date: Date | string) => {
@@ -93,135 +570,176 @@ export default function ReservationsPage() {
     console.log('Confirm arrival for reservation:', reservationId);
   };
 
-  const cityOptions = [
-    { value: '', label: 'City' },
-    { value: 'barcelona', label: 'Barcelona' },
-    { value: 'madrid', label: 'Madrid' },
-    { value: 'new-york', label: 'New York' },
-  ];
+  const handleDateApply = (range: DateRange, quick: QuickFilter) => {
+    setDateRange(range);
+    setQuickDateFilter(quick);
+  };
 
-  const eventOptions = [
-    { value: '', label: 'Select a city and search for an event' },
-    { value: 'sensas', label: 'SENSAS - A sensory experience' },
-    { value: 'candlelight', label: 'Candlelight Concert' },
-  ];
+  const getDateButtonLabel = () => {
+    if (quickDateFilter === 'today') return 'Today';
+    if (quickDateFilter === 'this_month') return 'This month';
+    if (quickDateFilter === 'next_3_months') return 'Next 3 months';
+    return 'Dates';
+  };
 
-  const venueOptions = [
-    { value: '', label: 'Venue' },
-    { value: 'sensas-barcelona', label: 'SENSAS Barcelona' },
-    { value: 'palau-musica', label: 'Palau de la Música' },
-  ];
+  const cityOptions = useMemo(() => {
+    const cities = Array.from(new Set(EVENT_PROFILES.map((profile) => profile.city)));
+    return [{ value: '', label: 'City' }, ...cities.map((city) => ({ value: city, label: city }))];
+  }, []);
 
-  const statusOptions = [
-    { value: 'paid,to_be_paid', label: 'Paid, To be paid' },
-    { value: 'paid', label: 'Paid' },
-    { value: 'to_be_paid', label: 'To be paid' },
-    { value: 'cancelled', label: 'Cancelled' },
-    { value: 'all', label: 'All Statuses' },
-  ];
+  const buildEventOptions = (targetCity: string) => {
+    const baseOption = { value: '', label: 'Select a city and search for an event' };
+    if (!targetCity) return [baseOption];
 
-  const businessTypeOptions = [
-    { value: '', label: 'Select option(s)' },
-    { value: 'partner', label: 'Partner' },
-    { value: 'business', label: 'Business' },
-  ];
+    const allReservations = getAllReservations();
+    const eventsInCity = allReservations
+      .filter((r) => r.city === targetCity)
+      .map((r) => r.eventName || r.experienceName)
+      .filter((name, index, self) => self.indexOf(name) === index); // unique
+
+    return [
+      baseOption,
+      ...eventsInCity.map((name) => ({ value: name, label: name })),
+    ];
+  };
+
+  const buildVenueOptions = (targetCity: string, targetEvent: string) => {
+    const baseOption = { value: '', label: 'Venue' };
+    if (!targetCity) return [baseOption];
+
+    const allReservations = getAllReservations();
+    let filtered = allReservations.filter((r) => r.city === targetCity);
+
+    if (targetEvent) {
+      filtered = filtered.filter((r) => (r.eventName || r.experienceName) === targetEvent);
+    }
+
+    const venues = filtered
+      .map((r) => r.venue)
+      .filter((v): v is string => !!v)
+      .filter((name, index, self) => self.indexOf(name) === index); // unique
+
+    return [
+      baseOption,
+      ...venues.map((name) => ({ value: name, label: name })),
+    ];
+  };
+
+  // Event options based on selected city
+  const eventOptions = useMemo(() => buildEventOptions(cityFilter), [cityFilter]);
+
+  // Venue options based on selected city and event
+  const venueOptions = useMemo(() => buildVenueOptions(cityFilter, eventFilter), [cityFilter, eventFilter]);
+
 
   return (
-    <div className="flex h-screen overflow-hidden font-[Montserrat,sans-serif]">
+    <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       <Sidebar activeItem="reservations" activeChild="overview" />
 
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top Bar */}
-        <TopBar userName="SO Test" onCreateEvent={() => router.push('/events/new')} />
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-[var(--palette-neutral-100)]">
+        <main className="flex-1 overflow-y-auto" style={{ backgroundColor: 'var(--palette-neutral-100)' }}>
           {/* Hero Header Section - Dark Background */}
           <div
-            className="flex flex-col gap-4 p-6"
-            style={{ backgroundColor: '#06232c' }}
+            className="flex flex-col p-6"
+            style={{
+              backgroundColor: 'var(--palette-neutral-700)',
+              gap: 'var(--leading-base)',
+              marginTop: '40px',
+            }}
           >
             {/* Title */}
-            <div className="flex items-center gap-1">
-              <h1
-                className="font-semibold"
-                style={{
-                  fontSize: '24px',
-                  lineHeight: '28px',
-                  color: '#ffffff',
-                  fontFamily: 'Montserrat, sans-serif',
-                }}
-              >
-                Reservations
-              </h1>
-            </div>
+            <h1
+              style={{
+                fontSize: 'var(--size-h2)',
+                lineHeight: 'var(--leading-h2)',
+                fontWeight: 'var(--weight-semibold)',
+                color: 'var(--palette-neutral-white)',
+                fontFamily: 'var(--font-body)',
+                margin: 0,
+              }}
+            >
+              Reservations
+            </h1>
 
             {/* Filters Row */}
-            <div className="flex items-center gap-6">
-              {/* City Select - Fixed width 240px */}
-              <div className="w-[240px] shrink-0">
+            <div className="flex items-center" style={{ gap: 'var(--leading-base)' }}>
+              {/* City Select - Fixed width */}
+              <div style={{ width: '120px', flexShrink: 0 }}>
                 <FieldSelect
                   label="City"
-                  placeholder="All cities"
+                  placeholder="City"
                   value={cityFilter}
-                  onChange={(v) => setCityFilter(v as string)}
+                  onChange={(v) => {
+                    const next = v as string;
+                    setCityFilter(next);
+                    setEventFilter('');
+                    setVenueFilter('');
+                  }}
                   options={cityOptions}
                 />
               </div>
 
-              {/* Event Search/Select - Flex 1, takes remaining space */}
+              {/* Event Select - Flex 1 */}
               <div className="flex-1 min-w-0">
                 <FieldSelect
-                  label="Search or type event"
-                  placeholder="All events"
+                  label="Select a city and search for an event"
+                  placeholder="Select a city and search for an event"
                   value={eventFilter}
-                  onChange={(v) => setEventFilter(v as string)}
+                  onChange={(v) => {
+                    const next = v as string;
+                    setEventFilter(next);
+                    setVenueFilter('');
+                  }}
                   options={eventOptions}
                 />
               </div>
 
-              {/* Venue Select - Fixed width 320px */}
-              <div className="w-[320px] shrink-0">
+              {/* Venue Select - Fixed width */}
+              <div style={{ width: '160px', flexShrink: 0 }}>
                 <FieldSelect
                   label="Venue"
-                  placeholder="All venues"
+                  placeholder="Venue"
                   value={venueFilter}
                   onChange={(v) => setVenueFilter(v as string)}
                   options={venueOptions}
                 />
               </div>
-
-              {/* Show Button - Secondary style with white text on dark bg */}
-              <button
-                className="shrink-0 flex items-center justify-center font-semibold transition-colors hover:bg-white/10"
-                style={{
-                  height: '48px',
-                  minWidth: '112px',
-                  paddingLeft: '24px',
-                  paddingRight: '24px',
-                  borderRadius: '64px',
-                  border: '2px solid #ccd2d8',
-                  color: '#ffffff',
-                  fontSize: '16px',
-                  lineHeight: '24px',
-                  fontFamily: 'Montserrat, sans-serif',
-                  backgroundColor: 'transparent',
-                }}
-              >
-                Show
-              </button>
             </div>
           </div>
 
           {/* Main Content Area */}
-          <div className="p-6">
+          <div style={{ padding: 'var(--leading-base)' }}>
             {/* White Card Container */}
-            <div className="rounded-[var(--dimensions-radii)] border border-[var(--border-main-default)] bg-[var(--background-main-default)]">
+            <div
+              style={{
+                borderRadius: 'var(--dimensions-radii)',
+                border: '1px solid var(--border-main-default)',
+                backgroundColor: 'var(--background-main-default)',
+              }}
+            >
               {/* Card Header */}
-              <div className="flex items-center justify-between p-6 border-b border-[var(--border-main-default)]">
-                <h2 className="text-[length:var(--size-h3)] font-[var(--weight-semibold)] leading-[var(--leading-h3)] text-[var(--text-main-default)]">
+              <div
+                className="flex items-center justify-between"
+                style={{
+                  padding: 'var(--leading-base)',
+                  borderBottom: '1px solid var(--border-main-default)',
+                }}
+              >
+                <h2
+                  style={{
+                    fontSize: 'var(--size-h3)',
+                    lineHeight: 'var(--leading-h3)',
+                    fontWeight: 'var(--weight-semibold)',
+                    color: 'var(--text-main-default)',
+                    fontFamily: 'var(--font-body)',
+                    margin: 0,
+                  }}
+                >
                   Reservations Overview
                 </h2>
                 <Button
@@ -234,20 +752,41 @@ export default function ReservationsPage() {
               </div>
 
               {/* Filters Section */}
-              <div className="p-6">
+              <div style={{ padding: 'var(--leading-base)' }}>
                 {/* Secondary Filters */}
-                <div className="flex items-end gap-3 mb-4">
+                <div
+                  className="flex items-center"
+                  style={{ gap: 'var(--space-3)', marginBottom: 'var(--leading-caption)' }}
+                >
                   {/* Date Pill Button */}
                   <button
-                    className="flex items-center gap-[var(--button-gap)] h-[56px] px-[var(--pills-padding-inline)] rounded-[var(--pills-radii)] border border-[var(--border-main-default)] bg-[var(--background-main-default)] text-[length:var(--size-small)] font-[var(--weight-semibold)] text-[var(--text-main-default)] hover:border-[var(--select-border-hover)] transition-colors"
+                    onClick={() => setIsDatePickerOpen(true)}
+                    className="flex items-center transition-colors"
+                    style={{
+                      gap: 'var(--dimensions-gap)',
+                      height: '40px',
+                      paddingLeft: 'var(--space-3)',
+                      paddingRight: 'var(--space-3)',
+                      borderRadius: '64px',
+                      border: quickDateFilter
+                        ? '1px solid var(--action-border-primary-default)'
+                        : '1px solid var(--border-main-default)',
+                      backgroundColor: quickDateFilter
+                        ? 'var(--palette-primary-100)'
+                        : 'var(--background-main-default)',
+                      fontSize: 'var(--size-small)',
+                      fontWeight: 'var(--weight-semibold)',
+                      color: 'var(--text-main-default)',
+                      fontFamily: 'var(--font-body)',
+                    }}
                   >
-                    <img alt="" src={iconCalendar} className="h-[18px] w-[18px] opacity-70" />
-                    <span>Date</span>
-                    <img alt="" src={iconChevronDown} className="h-4 w-4 opacity-50" />
+                    <IconCalendar size={18} color="var(--text-subtle-default)" />
+                    <span>{getDateButtonLabel()}</span>
+                    <IconChevronDown size={16} color="var(--text-subtle-default)" />
                   </button>
 
                   {/* Search Input */}
-                  <div className="flex-1 max-w-[380px]">
+                  <div className="flex-1" style={{ maxWidth: '380px' }}>
                     <FieldSearch
                       label="Reservation ID, Recipient or Business"
                       value={searchQuery}
@@ -257,81 +796,125 @@ export default function ReservationsPage() {
                     />
                   </div>
 
-                  {/* Status Select */}
-                  <div className="w-[180px]">
+                  {/* Status Multi-Select */}
+                  <div className="flex-1 min-w-0">
                     <FieldSelect
                       label="Status"
+                      placeholder="All statuses"
                       value={statusFilter}
-                      onChange={(v) => setStatusFilter(v as string)}
-                      options={statusOptions}
+                      onChange={(v) => setStatusFilter(Array.isArray(v) ? v : [v])}
+                      options={STATUS_OPTIONS}
+                      multiple
+                      displayValue={
+                        statusFilter.length === 0 || statusFilter.length === STATUS_OPTIONS.length
+                          ? 'All statuses'
+                          : undefined
+                      }
                     />
                   </div>
 
-                  {/* Business Type Select */}
-                  <div className="w-[180px]">
+                  {/* Business Type Multi-Select */}
+                  <div className="flex-1 min-w-0">
                     <FieldSelect
                       label="Business type"
-                      placeholder="Select option(s)"
+                      placeholder="All business types"
                       value={businessTypeFilter}
-                      onChange={(v) => setBusinessTypeFilter(v as string)}
-                      options={businessTypeOptions}
+                      onChange={(v) => setBusinessTypeFilter(Array.isArray(v) ? v : [v])}
+                      options={BUSINESS_TYPE_OPTIONS}
+                      multiple
+                      displayValue={
+                        businessTypeFilter.length === 0 || businessTypeFilter.length === BUSINESS_TYPE_OPTIONS.length
+                          ? 'All business types'
+                          : undefined
+                      }
                     />
                   </div>
                 </div>
 
                 {/* Results count */}
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-[length:var(--size-small)] font-[var(--weight-semibold)] text-[var(--text-main-default)]">
+                <div
+                  className="flex items-center"
+                  style={{ gap: 'var(--space-2)', marginBottom: 'var(--leading-caption)' }}
+                >
+                  <span
+                    style={{
+                      fontSize: 'var(--size-small)',
+                      fontWeight: 'var(--weight-semibold)',
+                      color: 'var(--text-main-default)',
+                      fontFamily: 'var(--font-body)',
+                    }}
+                  >
                     {reservations.length}
                   </span>
-                  <span className="text-[length:var(--size-small)] text-[var(--text-subtle-default)]">
+                  <span
+                    style={{
+                      fontSize: 'var(--size-small)',
+                      fontWeight: 'var(--weight-regular)',
+                      color: 'var(--text-subtle-default)',
+                      fontFamily: 'var(--font-body)',
+                    }}
+                  >
                     reservation{reservations.length !== 1 ? 's' : ''} with the filters applied
                   </span>
                   <button
-                    className="ml-1 flex h-7 w-7 items-center justify-center rounded-[var(--tag-radii)] border border-[var(--border-main-default)] bg-[var(--background-main-default)] hover:bg-[var(--palette-neutral-100)] transition-colors"
+                    className="flex items-center justify-center transition-colors"
+                    style={{
+                      marginLeft: '4px',
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '4px',
+                      border: '1px solid var(--border-main-default)',
+                      backgroundColor: 'var(--background-main-default)',
+                    }}
                   >
-                    <img alt="Export" src={iconExport} className="h-4 w-4 opacity-60" />
+                    <IconClipboardList size={16} color="var(--text-subtle-default)" />
                   </button>
                 </div>
 
                 {/* Reservations Table */}
                 {reservations.length > 0 && (
-                  <div className="overflow-x-auto -mx-6">
-                    <table className="w-full min-w-[900px]">
+                  <div className="overflow-x-auto" style={{ marginLeft: '-24px', marginRight: '-24px' }}>
+                    <table style={{ width: '100%', minWidth: '900px', borderCollapse: 'collapse' }}>
                       <thead>
-                        <tr className="border-y border-[var(--border-main-default)] bg-[var(--palette-neutral-50)]">
-                          <th className="px-6 py-3 text-left text-[length:var(--size-caption)] font-[var(--weight-semibold)] text-[var(--text-subtle-default)]">
-                            Event Date <span className="opacity-50">↑↓</span>
+                        <tr
+                          style={{
+                            borderTop: '1px solid var(--border-main-default)',
+                            borderBottom: '1px solid var(--border-main-default)',
+                            backgroundColor: 'var(--palette-neutral-50)',
+                          }}
+                        >
+                          <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: 'var(--size-caption)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-subtle-default)', fontFamily: 'var(--font-body)' }}>
+                            Event Date <span style={{ opacity: 0.5 }}>↑↓</span>
                           </th>
-                          <th className="px-4 py-3 text-left text-[length:var(--size-caption)] font-[var(--weight-semibold)] text-[var(--text-subtle-default)]">
-                            Booking Agent
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 'var(--size-caption)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-subtle-default)', fontFamily: 'var(--font-body)' }}>
+                            Business
                           </th>
-                          <th className="px-4 py-3 text-left text-[length:var(--size-caption)] font-[var(--weight-semibold)] text-[var(--text-subtle-default)]">
-                            Event <span className="opacity-50">↑↓</span>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 'var(--size-caption)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-subtle-default)', fontFamily: 'var(--font-body)' }}>
+                            Event
                           </th>
-                          <th className="px-4 py-3 text-left text-[length:var(--size-caption)] font-[var(--weight-semibold)] text-[var(--text-subtle-default)]">
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 'var(--size-caption)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-subtle-default)', fontFamily: 'var(--font-body)' }}>
                             Reservation ID
                           </th>
-                          <th className="px-4 py-3 text-left text-[length:var(--size-caption)] font-[var(--weight-semibold)] text-[var(--text-subtle-default)]">
-                            Contact info <span className="opacity-50">↑↓</span>
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 'var(--size-caption)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-subtle-default)', fontFamily: 'var(--font-body)' }}>
+                            Contact info
                           </th>
-                          <th className="px-4 py-3 text-center text-[length:var(--size-caption)] font-[var(--weight-semibold)] text-[var(--text-subtle-default)]">
-                            #Tickets
+                          <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: 'var(--size-caption)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-subtle-default)', fontFamily: 'var(--font-body)' }}>
+                            # Tickets
                           </th>
-                          <th className="px-4 py-3 text-right text-[length:var(--size-caption)] font-[var(--weight-semibold)] text-[var(--text-subtle-default)]">
+                          <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 'var(--size-caption)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-subtle-default)', fontFamily: 'var(--font-body)' }}>
                             Total
                           </th>
-                          <th className="px-4 py-3 text-left text-[length:var(--size-caption)] font-[var(--weight-semibold)] text-[var(--text-subtle-default)]">
-                            Status
+                          <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 'var(--size-caption)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-subtle-default)', fontFamily: 'var(--font-body)' }}>
+                            Status <span style={{ opacity: 0.5 }}>↑↓</span>
                           </th>
-                          <th className="px-6 py-3 text-left text-[length:var(--size-caption)] font-[var(--weight-semibold)] text-[var(--text-subtle-default)]">
+                          <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: 'var(--size-caption)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-subtle-default)', fontFamily: 'var(--font-body)' }}>
                             Attendance
                           </th>
                         </tr>
                       </thead>
                       <tbody>
                         {reservations.map((reservation) => {
-                          const statusBadge = getStatusBadge(reservation.status);
+                          const statusTag = getStatusTag(reservation.status);
                           const eventDate = reservation.dateTime
                             ? new Date(reservation.dateTime)
                             : reservation.checkInDate;
@@ -345,73 +928,103 @@ export default function ReservationsPage() {
                           return (
                             <tr
                               key={reservation.id}
-                              className="border-b border-[var(--border-main-default)] cursor-pointer transition-colors hover:bg-[var(--palette-neutral-100)]"
+                              className="cursor-pointer transition-colors"
+                              style={{ borderBottom: '1px solid var(--border-main-default)' }}
                               onClick={() => router.push(`/reservations/${reservation.id}`)}
+                              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--palette-neutral-100)')}
+                              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                             >
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-[length:var(--size-small)] font-[var(--weight-regular)] text-[var(--text-main-default)]">
+                              <td style={{ padding: '16px 24px', whiteSpace: 'nowrap' }}>
+                                <div style={{ fontSize: 'var(--size-small)', fontWeight: 'var(--weight-regular)', color: 'var(--text-main-default)', fontFamily: 'var(--font-body)' }}>
                                   {formatDate(eventDate)}
                                 </div>
-                                <div className="text-[length:var(--size-caption)] text-[var(--text-subtle-default)]">
+                                <div style={{ fontSize: 'var(--size-caption)', fontWeight: 'var(--weight-regular)', color: 'var(--text-subtle-default)', fontFamily: 'var(--font-body)' }}>
                                   {formatTime(eventDate)}
                                 </div>
                               </td>
-                              <td className="px-4 py-4">
+                              <td style={{ padding: '16px' }}>
                                 {bookingAgentType && (
                                   <span
-                                    className="inline-block mb-1 px-[var(--tag-padding-inline)] py-0.5 rounded-[var(--tag-radii)] text-[length:var(--size-caption)] font-[var(--weight-semibold)] border"
                                     style={{
-                                      color: 'var(--tag-info-fg)',
-                                      borderColor: 'var(--tag-info-border)',
+                                      display: 'inline-block',
+                                      marginBottom: '4px',
+                                      padding: '2px 4px',
+                                      borderRadius: '4px',
+                                      fontSize: 'var(--size-caption)',
+                                      fontWeight: 'var(--weight-semibold)',
+                                      fontFamily: 'var(--font-body)',
+                                      color: 'var(--action-text-primary-default)',
+                                      border: '1px solid var(--palette-primary-500)',
                                       backgroundColor: 'transparent',
                                     }}
                                   >
                                     {bookingAgentType}
                                   </span>
                                 )}
-                                <div className="text-[length:var(--size-small)] font-[var(--weight-semibold)] text-[var(--text-main-default)]">
+                                <div style={{ fontSize: 'var(--size-small)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-main-default)', fontFamily: 'var(--font-body)' }}>
                                   {bookingAgent}
                                 </div>
-                                <div className="text-[length:var(--size-caption)] text-[var(--action-primary)]">
+                                <div style={{ fontSize: 'var(--size-caption)', color: 'var(--action-text-primary-default)', fontFamily: 'var(--font-body)' }}>
                                   {bookingAgentEmail}
                                 </div>
                                 {bookingAgentPhone && (
-                                  <div className="text-[length:var(--size-caption)] text-[var(--text-subtle-default)]">
+                                  <div style={{ fontSize: 'var(--size-caption)', color: 'var(--text-subtle-default)', fontFamily: 'var(--font-body)' }}>
                                     {bookingAgentPhone}
                                   </div>
                                 )}
                               </td>
-                              <td className="px-4 py-4 max-w-[160px]">
-                                <div className="line-clamp-2 text-[length:var(--size-small)] text-[var(--text-main-default)]">
-                                  {eventName}
+                              <td style={{ padding: '16px' }}>
+                                <div className="flex items-center" style={{ gap: '12px' }}>
+                                  {/* Event Image */}
+                                  {reservation.eventImage && (
+                                    <img
+                                      src={reservation.eventImage}
+                                      alt={eventName}
+                                      style={{
+                                        width: '56px',
+                                        height: '56px',
+                                        borderRadius: '4px',
+                                        objectFit: 'cover',
+                                        flexShrink: 0,
+                                      }}
+                                    />
+                                  )}
+                                  {/* Event Name */}
+                                  <div className="line-clamp-2" style={{ fontSize: 'var(--size-small)', fontWeight: 'var(--weight-regular)', color: 'var(--text-main-default)', fontFamily: 'var(--font-body)' }}>
+                                    {eventName}
+                                  </div>
                                 </div>
                               </td>
-                              <td className="px-4 py-4 whitespace-nowrap">
-                                <span className="text-[length:var(--size-small)] font-mono text-[var(--text-subtle-default)]">
+                              <td style={{ padding: '16px', whiteSpace: 'nowrap' }}>
+                                <span style={{ fontSize: 'var(--size-small)', fontFamily: 'monospace', color: 'var(--text-subtle-default)' }}>
                                   {reservation.id}
                                 </span>
                               </td>
-                              <td className="px-4 py-4">
-                                <div className="text-[length:var(--size-caption)] text-[var(--action-primary)]">
+                              <td style={{ padding: '16px' }}>
+                                <div style={{ fontSize: 'var(--size-caption)', color: 'var(--action-text-primary-default)', fontFamily: 'var(--font-body)' }}>
                                   {reservation.customerEmail}
                                 </div>
                               </td>
-                              <td className="px-4 py-4 text-center">
-                                <span className="text-[length:var(--size-small)] text-[var(--text-main-default)]">
+                              <td style={{ padding: '16px', textAlign: 'center' }}>
+                                <span style={{ fontSize: 'var(--size-small)', fontWeight: 'var(--weight-regular)', color: 'var(--text-main-default)', fontFamily: 'var(--font-body)' }}>
                                   {numberOfTickets}
                                 </span>
                               </td>
-                              <td className="px-4 py-4 text-right whitespace-nowrap">
-                                <span className="text-[length:var(--size-small)] font-[var(--weight-regular)] text-[var(--text-main-default)]">
+                              <td style={{ padding: '16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                <span style={{ fontSize: 'var(--size-small)', fontWeight: 'var(--weight-regular)', color: 'var(--text-main-default)', fontFamily: 'var(--font-body)' }}>
                                   ${reservation.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                 </span>
                               </td>
-                              <td className="px-4 py-4">
-                                <Badge variant={statusBadge.variant} badgeStyle="dot">
-                                  {statusBadge.label}
-                                </Badge>
+                              <td style={{ padding: '16px' }}>
+                                <Tag 
+                                  sentiment={statusTag.sentiment} 
+                                  tagStyle="solid"
+                                  startIcon={statusTag.icon}
+                                >
+                                  {statusTag.label}
+                                </Tag>
                               </td>
-                              <td className="px-6 py-4">
+                              <td style={{ padding: '16px 24px' }}>
                                 {reservation.status === ReservationStatus.PAID && !reservation.attendanceConfirmed && (
                                   <Button
                                     variant="secondary"
@@ -435,13 +1048,37 @@ export default function ReservationsPage() {
 
                 {/* Empty State */}
                 {reservations.length === 0 && (
-                  <div className="py-12 text-center">
-                    <h3 className="text-[length:var(--size-base)] font-[var(--weight-semibold)] text-[var(--text-main-default)]">
-                      No reservations found
-                    </h3>
-                    <p className="mt-2 text-[length:var(--size-small)] text-[var(--text-subtle-default)]">
-                      Try adjusting your search or filter criteria.
+                  <div
+                    className="flex flex-col items-center justify-center py-16"
+                    style={{ gap: '12px' }}
+                  >
+                    <IconClipboardList size={48} color="var(--text-subtle-default)" />
+                    <p
+                      style={{
+                        fontSize: 'var(--size-small)',
+                        color: 'var(--text-subtle-default)',
+                        fontFamily: 'var(--font-body)',
+                        textAlign: 'center',
+                        margin: 0,
+                      }}
+                    >
+                      Sorry, we couldn't find reservations with your search criteria. Please change the filters and try again.
                     </p>
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={() => {
+                        // Clear all filters except city and event
+                        setSearchQuery('');
+                        setStatusFilter([]); // All statuses
+                        setVenueFilter('');
+                        setBusinessTypeFilter([]);
+                        setDateRange({ start: null, end: null });
+                        setQuickDateFilter(null);
+                      }}
+                    >
+                      Clear filters
+                    </Button>
                   </div>
                 )}
               </div>
@@ -449,6 +1086,15 @@ export default function ReservationsPage() {
           </div>
         </main>
       </div>
+
+      {/* Date Picker Modal */}
+      <DatePickerModal
+        isOpen={isDatePickerOpen}
+        onClose={() => setIsDatePickerOpen(false)}
+        dateRange={dateRange}
+        quickFilter={quickDateFilter}
+        onApply={handleDateApply}
+      />
     </div>
   );
 }

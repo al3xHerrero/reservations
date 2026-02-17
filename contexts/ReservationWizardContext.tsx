@@ -82,12 +82,18 @@ interface ReservationWizardContextType {
   updateOverride: (override: Override | null) => void;
   updateDepositChoice: (choice: DepositChoice | null) => void;
   reset: () => void;
+  checkoutTransitionRequested: boolean;
+  showSuccessAlertOnCheckout: boolean;
+  requestCheckoutTransition: (showAlert?: boolean) => void;
+  consumeCheckoutTransition: () => void;
 }
 
 const ReservationWizardContext = createContext<ReservationWizardContextType | undefined>(undefined);
 
 export function ReservationWizardProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ReservationWizardState>(initialState);
+  const [checkoutTransitionRequested, setCheckoutTransitionRequested] = useState(false);
+  const [showSuccessAlertOnCheckout, setShowSuccessAlertOnCheckout] = useState(false);
 
   const updateBusiness = (business: Business | null) => {
     setState((prev) => ({ ...prev, selectedBusiness: business }));
@@ -122,6 +128,17 @@ export function ReservationWizardProvider({ children }: { children: ReactNode })
 
   const reset = () => {
     setState(initialState);
+    setCheckoutTransitionRequested(false);
+    setShowSuccessAlertOnCheckout(false);
+  };
+
+  const requestCheckoutTransition = (showAlert = true) => {
+    setCheckoutTransitionRequested(true);
+    setShowSuccessAlertOnCheckout(showAlert);
+  };
+
+  const consumeCheckoutTransition = () => {
+    setCheckoutTransitionRequested(false);
   };
 
   return (
@@ -136,6 +153,10 @@ export function ReservationWizardProvider({ children }: { children: ReactNode })
         updateOverride,
         updateDepositChoice,
         reset,
+        checkoutTransitionRequested,
+        showSuccessAlertOnCheckout,
+        requestCheckoutTransition,
+        consumeCheckoutTransition,
       }}
     >
       {children}

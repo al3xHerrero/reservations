@@ -2,73 +2,130 @@
 
 import React from 'react';
 
-// Design tokens from Figma
+export const TOPBAR_HEIGHT = 64;
+
 const TOKENS = {
-  bgContrast: '#06232c',
-  textWhite: '#ffffff',
-  borderContrast: '#536b75',
-  buttonRadii: '64px',
-  fontFamily: 'Montserrat, sans-serif',
-  baseSize: '16px',
-  smallSize: '14px',
-  weightRegular: '400',
-  weightSemibold: '600',
+  background: '#06232c',
+  border: '1px solid #536b75',
+  fontFamily: 'var(--font-body)',
+  textColor: '#ffffff',
+  padding: '0 24px',
 };
+
+const MenuIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="4" width="14" height="2" rx="1" fill="#ffffff" />
+    <rect x="2" y="8" width="14" height="2" rx="1" fill="#ffffff" />
+    <rect x="2" y="12" width="14" height="2" rx="1" fill="#ffffff" />
+  </svg>
+);
+
+const Logo = () => (
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'flex-end',
+      gap: 3,
+      color: '#ffffff',
+      fontFamily: 'var(--font-body)',
+    }}
+  >
+    <span
+      style={{
+        fontSize: 28,
+        fontWeight: 700,
+        letterSpacing: -0.5,
+      }}
+    >
+      fever
+    </span>
+    <span
+      style={{
+        fontSize: 9,
+        textTransform: 'uppercase',
+        letterSpacing: 2,
+        fontWeight: 400,
+        alignSelf: 'flex-start',
+        marginTop: 4,
+      }}
+    >
+      zone
+    </span>
+  </div>
+);
+
+const Avatar = () => (
+  <span
+    style={{
+      width: 36,
+      height: 36,
+      borderRadius: '50%',
+      border: '1px solid #536b75',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}
+  >
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="7" r="3" stroke="#ffffff" strokeWidth="1.5" />
+      <path
+        d="M4 17C4 14.2386 6.68629 12 10 12C13.3137 12 16 14.2386 16 17"
+        stroke="#ffffff"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  </span>
+);
 
 interface TopBarProps {
   userName?: string;
-  onCreateEvent?: () => void;
+  onMenuToggle?: () => void;
 }
 
-export function TopBar({ userName = 'SO Test', onCreateEvent }: TopBarProps) {
+export function TopBar({ userName = 'SO Test', onMenuToggle }: TopBarProps) {
   return (
     <header
-      className="flex h-14 items-center justify-end gap-4 px-6"
       style={{
-        backgroundColor: TOKENS.bgContrast,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: `${TOPBAR_HEIGHT}px`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: TOKENS.background,
+        borderBottom: TOKENS.border,
         fontFamily: TOKENS.fontFamily,
+        padding: TOKENS.padding,
+        zIndex: 50,
       }}
     >
-      <button
-        onClick={onCreateEvent}
-        style={{
-          padding: '8px 16px',
-          borderRadius: TOKENS.buttonRadii,
-          border: `1px solid ${TOKENS.textWhite}`,
-          backgroundColor: 'transparent',
-          fontSize: TOKENS.smallSize,
-          fontWeight: TOKENS.weightSemibold,
-          color: TOKENS.textWhite,
-          fontFamily: TOKENS.fontFamily,
-          cursor: 'pointer',
-        }}
-      >
-        Crear evento
-      </button>
-      <div className="flex items-center gap-3">
-        <span style={{ fontSize: TOKENS.smallSize, color: TOKENS.textWhite }}>
-          {userName}
-        </span>
-        <div
-          className="flex h-8 w-8 items-center justify-center rounded-full"
-          style={{ border: `1px solid ${TOKENS.borderContrast}` }}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button
+          aria-label="Open menu"
+          onClick={onMenuToggle}
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 6,
+            border: 'none',
+            background: 'transparent',
+            padding: 0,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 20 20"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <circle cx="10" cy="7" r="3" stroke="white" strokeWidth="1.5" />
-            <path
-              d="M4 17C4 14.2386 6.68629 12 10 12C13.3137 12 16 14.2386 16 17"
-              stroke="white"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
-        </div>
+          <MenuIcon />
+        </button>
+        <Logo />
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ color: TOKENS.textColor, fontSize: 16 }}>{userName}</span>
+        <Avatar />
       </div>
     </header>
   );

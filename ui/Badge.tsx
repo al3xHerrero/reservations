@@ -12,7 +12,7 @@ const TOKENS = {
   captionSize: '12px',
   captionLineHeight: '16px',
   weightSemibold: '600',
-  fontFamily: 'Montserrat, sans-serif',
+  fontFamily: 'var(--font-body)',
 };
 
 type BadgeVariant = 'success' | 'warning' | 'danger' | 'neutral' | 'info';

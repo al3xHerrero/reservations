@@ -2,83 +2,79 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  AppShell,
-  Card,
-  Button,
-  Cart,
-  FlowHeader,
-  FieldRadioGroup,
-  FieldInput,
-  FieldSelect,
-  FieldTextarea,
-} from '@/ui';
+import { Button, Cart, Sidebar, Alert, IconCreditCard, IconLock, ToastAlert } from '@/ui';
+import type { CartDateGroup, CartBreakdown } from '@/ui';
 import { useReservationWizard } from '@/contexts/ReservationWizardContext';
-import { PaymentStatus, ReservationStatus } from '@/domain/reservation';
-import { markReservationPaid, upsertReservation } from '@/domain/mockReservations';
+import { EVENT_PROFILES } from '@/domain/mockReservations';
+import EventInfoCard from '../components/EventInfoCard';
+import CheckoutSkeleton from '../components/CheckoutSkeleton';
+
+// Payment method type
+type PaymentMethod = 'bank_card' | 'send_payment_link' | 'business_balance' | 'pay_at_box_office' | 'mark_as_paid' | 'pay_later';
+
+const PAYMENT_DESCRIPTIONS: Record<PaymentMethod, string | null> = {
+  bank_card: null,
+  send_payment_link: 'Send a secure payment link to the customer.',
+  business_balance: 'Use the available business balance to pay for this reservation. The total amount will be automatically deducted from the account balance.',
+  pay_at_box_office: null,
+  mark_as_paid: null,
+  pay_later: null,
+};
+
+const BUSINESS_BALANCE_AMOUNT = 2332.25;
+
+const PRIMARY_ACTION_LABELS: Record<PaymentMethod, string> = {
+  bank_card: 'Pay',
+  send_payment_link: 'Send payment link',
+  business_balance: 'Pay with balance',
+  pay_at_box_office: 'Mark as paid',
+  mark_as_paid: 'Mark as paid',
+  pay_later: 'Pay later',
+};
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { state, updateDepositChoice } = useReservationWizard();
-  const [paymentMethod, setPaymentMethod] = useState('business_balance');
-  const reservationId = useMemo(() => `L3${Date.now().toString().slice(-6)}`, []);
-  const [businessBalance, setBusinessBalance] = useState(() => {
-    if (typeof window === 'undefined') return 2332.25;
-    const stored = window.localStorage.getItem('business_balance_v1');
-    const parsed = stored ? Number(stored) : 2332.25;
-    return Number.isFinite(parsed) ? parsed : 2332.25;
-  });
-  const [cardDetails, setCardDetails] = useState({
-    number: '',
-    expiry: '',
-    cvv: '',
-  });
-  const [manualPaymentType, setManualPaymentType] = useState('credit_balance');
-  const [manualPaymentNote, setManualPaymentNote] = useState('');
-  const [boxOfficeCollection, setBoxOfficeCollection] = useState('terminal');
-
-  const isPartner = state.selectedBusiness?.bookingAgentType?.toLowerCase() === 'external';
-  const isBalanceAllowed = state.selectedBusiness?.balanceAllowed ?? false;
-  const paymentOptions = useMemo(
-    () => [
-      { id: 'payment_link', label: 'Payment link', available: true },
-      { id: 'bank_card', label: 'Bank card', available: true },
-      { id: 'business_balance', label: 'Business balance', available: isBalanceAllowed },
-      { id: 'pay_at_box_office', label: 'Pay at the box office', available: isPartner },
-      { id: 'mark_as_paid', label: 'Mark as paid', available: isPartner },
-    ],
-    [isPartner, isBalanceAllowed]
-  );
-
-  useEffect(() => {
-    const selected = paymentOptions.find((option) => option.id === paymentMethod);
-    if (selected?.available) return;
-    const firstAvailable = paymentOptions.find((option) => option.available);
-    if (firstAvailable && firstAvailable.id !== paymentMethod) {
-      setPaymentMethod(firstAvailable.id);
-    }
-  }, [paymentOptions, paymentMethod]);
-
-  const paymentRadioOptions = useMemo(
+  const {
+    state,
+    checkoutTransitionRequested,
+    showSuccessAlertOnCheckout,
+    consumeCheckoutTransition,
+  } = useReservationWizard();
+  
+  // Payment state
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('bank_card');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const primaryActionLabel = PRIMARY_ACTION_LABELS[paymentMethod] ?? 'Pay';
+  const formattedBalance = useMemo(
     () =>
-      paymentOptions.map((option) => ({
-        value: option.id,
-        label: option.available ? option.label : `${option.label} (Not available)`,
-        disabled: !option.available,
-      })),
-    [paymentOptions]
+      new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+      }).format(BUSINESS_BALANCE_AMOUNT),
+    []
   );
+  
+  // Cart state
+  const [showOriginalPrices, setShowOriginalPrices] = useState(true);
+  const [isBreakdownExpanded, setIsBreakdownExpanded] = useState(true);
+  const [isShowingCheckoutSkeleton, setIsShowingCheckoutSkeleton] = useState(checkoutTransitionRequested);
+  const [isSuccessAlertVisible, setIsSuccessAlertVisible] = useState(false);
+  
+  // Generate reservation ID
+  const reservationId = useMemo(() => `L34Q0X2R2`, []);
 
-  const paymentLink = useMemo(
-    () => `https://feverup.com/reservations/${reservationId}`,
-    [reservationId]
-  );
-
-  const calculateFinalTotal = () => {
-    let total = state.selectedTickets.reduce(
+  // Calculate totals
+  const cartTotal = useMemo(() => {
+    return state.selectedTickets.reduce(
       (sum, ticket) => sum + ticket.price * ticket.quantity,
       0
     );
+  }, [state.selectedTickets]);
+
+  const calculateFinalTotal = () => {
+    let total = cartTotal;
     if (state.override?.enabled && state.override.value) {
       const value = state.override.value;
       if (state.override.mode === 'fixed') {
@@ -86,7 +82,6 @@ export default function CheckoutPage() {
         else if (state.override.action === 'reduce') total -= value;
         else if (state.override.action === 'set_final') total = value;
       } else {
-        // percentage
         if (state.override.action === 'add') total += (total * value) / 100;
         else if (state.override.action === 'reduce') total -= (total * value) / 100;
         else if (state.override.action === 'set_final') total = (total * value) / 100;
@@ -95,359 +90,434 @@ export default function CheckoutPage() {
     return Math.max(0, total);
   };
 
-  const finalTotal = useMemo(() => calculateFinalTotal(), [state.selectedTickets, state.override]);
+  const finalTotal = useMemo(() => calculateFinalTotal(), [cartTotal, state.override]);
 
-  // Mock: deposit enabled for demonstration
-  const depositEnabled = false;
-  const depositAmount = useMemo(() => {
-    return finalTotal * 0.3; // 30% deposit
-  }, [finalTotal]);
+  // Format date for cart
+  const cartDateLabel = state.selectedDateTime
+    ? new Date(state.selectedDateTime).toLocaleString('en-US', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).replace(',', '')
+    : '8 Aug 2025 10:00';
 
-  const remainingAmount = finalTotal - depositAmount;
+  // Build cart date groups
+  const hasOverride = state.override?.enabled && state.override.value;
+  
+  const cartDateGroups: CartDateGroup[] = useMemo(() => {
+    if (state.selectedTickets.length === 0) {
+      // Demo data when no tickets selected
+      return [{
+        date: cartDateLabel,
+        items: [
+          {
+            id: '1',
+            quantity: 2,
+            title: 'Fanstand | 3-Day Pass (August 8 - 10)',
+            price: 1253.82,
+            originalPrice: 1350.00,
+            feePerTicket: 38.12,
+            feeTotal: 76.24,
+          },
+          {
+            id: '2',
+            quantity: 2,
+            title: 'Fanstand | 3-Day Pass (August 8 - 10)',
+            price: 1253.82,
+            originalPrice: 1350.00,
+            feePerTicket: 38.12,
+            feeTotal: 76.24,
+          },
+        ],
+      }];
+    }
 
-  const [depositChoice, setDepositChoice] = useState<'full' | 'deposit'>(
-    state.depositChoice?.type || 'full'
-  );
-  const [termsAccepted, setTermsAccepted] = useState(
-    state.depositChoice?.termsAccepted || false
-  );
+    return [{
+      date: cartDateLabel,
+      items: state.selectedTickets.map((ticket) => ({
+        id: ticket.ticketTypeId,
+        quantity: ticket.quantity,
+        title: `Fanstand | ${ticket.title}`,
+        price: ticket.price * ticket.quantity,
+        originalPrice: hasOverride ? ticket.price * ticket.quantity * 1.08 : undefined,
+        feePerTicket: 38.12,
+        feeTotal: 38.12 * ticket.quantity,
+      })),
+    }];
+  }, [state.selectedTickets, cartDateLabel, hasOverride]);
+
+  // Build breakdown
+  const breakdown: CartBreakdown = useMemo(() => {
+    const reservationValue = 2297.47;
+    const overrideValue = -100.00;
+    const outstandingAmount = 2197.47;
+
+    return {
+      reservationValue: reservationValue,
+      override: {
+        label: 'Override price',
+        value: overrideValue,
+        description: '"Comp. Tickets for HR department."',
+      },
+      totalToPay: outstandingAmount,
+      totalLabel: 'Outstanding amount',
+      isExpanded: isBreakdownExpanded,
+      onToggleExpanded: () => setIsBreakdownExpanded((prev) => !prev),
+    };
+  }, [isBreakdownExpanded]);
+
+  // Payment method options
+  const paymentMethods: { id: PaymentMethod; label: string }[] = [
+    { id: 'bank_card', label: 'Bank card' },
+    { id: 'send_payment_link', label: 'Send payment link' },
+    { id: 'business_balance', label: 'Business balance' },
+    { id: 'pay_at_box_office', label: 'Pay at Box Office' },
+    { id: 'mark_as_paid', label: 'Mark as paid' },
+    { id: 'pay_later', label: 'Pay later' },
+  ];
 
   const handlePayment = () => {
-    updateDepositChoice({
-      type: depositChoice,
-      termsAccepted: depositChoice === 'deposit' ? termsAccepted : undefined,
-    });
-    // TODO: Replace this mock with real payment API integration.
-    if (paymentMethod === 'business_balance') {
-      const updatedBalance = Math.max(0, businessBalance - finalTotal);
-      setBusinessBalance(updatedBalance);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('business_balance_v1', updatedBalance.toFixed(2));
-      }
-    }
-    const ticketCount = state.selectedTickets.reduce((sum, ticket) => sum + ticket.quantity, 0);
-    const eventDateTime = state.selectedDateTime || new Date().toISOString();
-    const now = new Date();
-    upsertReservation({
-      id: reservationId,
-      customerName: state.contactInfo.name || 'Unknown customer',
-      customerEmail: state.contactInfo.email || 'unknown@example.com',
-      customerPhone: state.contactInfo.phone || undefined,
-      experienceName: state.selectedEvent?.name || 'Reservation',
-      dateTime: eventDateTime,
-      status: ReservationStatus.TO_BE_PAID,
-      totalAmount: finalTotal,
-      currency: 'USD',
-      paymentStatus: 'to_be_paid',
-      depositEnabled,
-      depositAmount: depositChoice === 'deposit' ? depositAmount : 0,
-      remainingAmount: depositChoice === 'deposit' ? remainingAmount : finalTotal,
-      reservationDate: now,
-      checkInDate: new Date(eventDateTime),
-      checkOutDate: new Date(eventDateTime),
-      payment: {
-        id: `pay-${reservationId}`,
-        amount: finalTotal,
-        currency: 'USD',
-        status: PaymentStatus.PENDING,
-        method: paymentMethod,
-      },
-      deposit: {
-        id: `dep-${reservationId}`,
-        amount: depositChoice === 'deposit' ? depositAmount : 0,
-        currency: 'USD',
-        required: depositChoice === 'deposit',
-        paid: false,
-        refunded: false,
-      },
-      numberOfGuests: Math.max(ticketCount, 1),
-      bookingAgentName: state.selectedBusiness?.name,
-      bookingAgentType: state.selectedBusiness?.bookingAgentType,
-      eventName: state.selectedEvent?.name,
-      numberOfTickets: ticketCount,
-      attendanceConfirmed: false,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    markReservationPaid(reservationId);
+    // TODO: Implement actual payment logic
     router.push(`/reservations/${reservationId}`);
   };
 
-  const handleBack = () => {
-    router.push('/reservations/new/contact');
-  };
+  useEffect(() => {
+    if (!checkoutTransitionRequested) {
+      return;
+    }
 
-  const cartDateLabel = state.selectedDateTime
-    ? new Date(state.selectedDateTime).toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : new Date().toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+    setIsShowingCheckoutSkeleton(true);
+    let alertTimer: ReturnType<typeof setTimeout> | undefined;
+    const skeletonTimer = setTimeout(() => {
+      setIsShowingCheckoutSkeleton(false);
+      consumeCheckoutTransition();
+      // Only show alert if showSuccessAlertOnCheckout is true (new reservation from contact)
+      if (showSuccessAlertOnCheckout) {
+        setIsSuccessAlertVisible(true);
+        alertTimer = setTimeout(() => {
+          setIsSuccessAlertVisible(false);
+        }, 3000);
+      }
+    }, 1500);
 
-  const cartItems = state.selectedTickets.map((ticket) => ({
-    id: ticket.ticketTypeId,
-    quantity: ticket.quantity,
-    title: ticket.title,
-    price: ticket.price * ticket.quantity,
-  }));
+    return () => {
+      clearTimeout(skeletonTimer);
+      if (alertTimer) {
+        clearTimeout(alertTimer);
+      }
+    };
+  }, [checkoutTransitionRequested, consumeCheckoutTransition, showSuccessAlertOnCheckout]);
 
   return (
-    <AppShell className="bg-[var(--bg-page)]" mainClassName="p-0">
-      <FlowHeader
-        breadcrumb={[
-          { label: 'Reservations', href: '/reservations', underline: true },
-          { label: reservationId },
-        ]}
-        title="Reservation payment"
-      />
-      <div className="px-6 py-6">
-        <div className="mx-auto w-full max-w-[1136px]">
-          <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
-          {/* Left column */}
-          <div className="space-y-4">
-            <Card>
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-lg bg-surface flex items-center justify-center text-2xl">
-                  🎟️
-                </div>
-                <div>
-                  <p className="text-sm text-muted">Event</p>
-                  <p className="font-semibold text-text">
-                    {state.selectedEvent?.name || 'LIV Golf Chicago 2026'}
-                  </p>
-                  <p className="text-sm text-muted">
-                    {state.selectedEvent?.venue || 'Bolingbrook Golf Club'}
-                  </p>
-                </div>
-              </div>
-            </Card>
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar activeItem="reservations" activeChild="overview" />
 
-            <Card>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted">Reservation ID</p>
-                  <p className="text-text font-mono text-sm">{reservationId}</p>
-                </div>
-                <Button variant="secondary" size="sm">
-                  Copy
-                </Button>
-              </div>
-            </Card>
-
-            <Cart
-              title="Purchase details"
-              dateLabel={cartDateLabel}
-              items={cartItems}
-              emptyState={{
-                title: 'No tickets selected',
-                description: 'Choose event dates and tickets to build the new reservation.',
-              }}
-              totalAmount={finalTotal}
-            />
-
-            <Card>
-              <div className="flex items-center justify-between">
-                <p className="font-semibold text-text">Promo code</p>
-                <span className="text-muted">▾</span>
-              </div>
-            </Card>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <main className="flex-1 overflow-y-auto" style={{ backgroundColor: 'var(--palette-neutral-50)' }}>
+          {/* Hero Header */}
+          <div style={{ backgroundColor: 'var(--palette-neutral-700)', padding: 'var(--space-6)', marginTop: '40px' }}>
+            <p style={{ fontSize: '14px', color: 'var(--palette-neutral-white)', marginBottom: '4px' }}>
+              <span style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => router.push('/reservations')}>Overview</span>
+              <span style={{ color: 'var(--text-secondary-on-dark)' }}> / {reservationId}</span>
+            </p>
+            <h1 style={{ fontSize: 'var(--size-h2)', lineHeight: 'var(--leading-h2)', fontWeight: 'var(--weight-semibold)', color: 'var(--palette-neutral-white)', fontFamily: 'var(--font-body)', margin: 0 }}>
+              Make a reservation
+            </h1>
           </div>
 
-          {/* Right column */}
-          <div>
-            <Card>
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-text">Complete your reservation</h2>
-                  <p className="text-sm text-muted">
-                    Complete the payment to finalize the reservation and issue the tickets.
-                  </p>
+          {/* Content */}
+          <div style={{ padding: 'var(--space-6)' }}>
+            <div style={{ maxWidth: '1136px', display: 'flex', gap: '24px' }}>
+              {/* Left Column */}
+              <div style={{ width: '400px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <EventInfoCard
+                  title={state.selectedEvent?.name}
+                  venue={state.selectedEvent?.venue}
+                  address={state.selectedEvent?.address}
+                  thumbnail={state.selectedEvent?.thumbnail}
+                  fallbackName="LIV Golf Chicago 2025 - General Admission"
+                  fallbackVenue="Bolingbrook Golf Club"
+                  fallbackAddress="1220 Rowell Rd, Bolingbrook, IL"
+                  fallbackThumbnail={EVENT_PROFILES[0].thumbnail}
+                />
+
+                {/* Cart Component - SAME AS OTHER PAGES */}
+                <Cart
+                  title="Purchase details"
+                  collapsible={true}
+                  defaultCollapsed={false}
+                  showOriginalPricesCheckbox={true}
+                  originalPricesChecked={showOriginalPrices}
+                  onOriginalPricesChange={setShowOriginalPrices}
+                  dateGroups={cartDateGroups}
+                  breakdown={breakdown}
+                />
+
+                {/* Promo Code Card */}
+                <div
+                  style={{
+                    backgroundColor: 'var(--background-main-default)',
+                    border: '1px solid var(--border-main-default)',
+                    borderRadius: '8px',
+                    padding: 'var(--space-6)',
+                    marginTop: 'var(--space-4)',
+                  }}
+                >
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-main-default)', margin: 0 }}>Promo code</h3>
                 </div>
+              </div>
 
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-muted">Total to pay</p>
-                  <p className="text-2xl font-semibold text-text">${finalTotal.toFixed(2)}</p>
-                </div>
-
-                <div className="flex gap-3 p-4 rounded-lg bg-warning/10 border border-warning">
-                  <div className="text-warning">⚠️</div>
-                  <div className="text-sm text-warning">
-                    <p className="font-medium">Please, secure your reservation before the deadline to avoid cancellation.</p>
-                    <p>
-                      Deadline (Event time): Tue, 04 Nov 2025, 10:59 AM (UTC+11).
-                    </p>
-                    <p>Time left: 23h 3m</p>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-text mb-3">Payment method</p>
-                  <FieldRadioGroup
-                    value={paymentMethod}
-                    onChange={setPaymentMethod}
-                    options={paymentRadioOptions}
-                    className="grid grid-cols-1 md:grid-cols-2 gap-3"
-                  />
-                  <p className="mt-2 text-xs text-muted">
-                    Partners can use all payment options. Businesses are limited to card, payment link,
-                    and balance when enabled.
-                  </p>
-                </div>
-
-                {paymentMethod === 'payment_link' && (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted">
-                      Generate a secure link to pay the remaining amount. Anyone with the link and a
-                      valid login can complete the checkout, and the payer will be recorded in the order.
-                    </p>
-                    <FieldInput value={paymentLink} readOnly aria-label="Payment link" />
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Button variant="secondary">Copy link</Button>
-                      <Button variant="secondary" disabled={!state.contactInfo.email}>
-                        Send to {state.contactInfo.email || 'contact email'}
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted">
-                      Send uses the reservation contact email. Whitelabels can customize the email template.
-                    </p>
-                  </div>
-                )}
-
-                {paymentMethod === 'bank_card' && (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted">
-                      Process a direct payment by entering a valid card PAN, expiration date, and CVV.
-                      This is useful for phone sales and immediately converts the reservation into an order.
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-3">
-                      <FieldInput
-                        placeholder="Card number"
-                        inputMode="numeric"
-                        value={cardDetails.number}
-                        onChange={(event) =>
-                          setCardDetails((prev) => ({ ...prev, number: event.target.value }))
-                        }
-                      />
-                      <FieldInput
-                        placeholder="MM/YY"
-                        inputMode="numeric"
-                        value={cardDetails.expiry}
-                        onChange={(event) =>
-                          setCardDetails((prev) => ({ ...prev, expiry: event.target.value }))
-                        }
-                      />
-                      <FieldInput
-                        placeholder="CVV"
-                        inputMode="numeric"
-                        value={cardDetails.cvv}
-                        onChange={(event) =>
-                          setCardDetails((prev) => ({ ...prev, cvv: event.target.value }))
-                        }
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {paymentMethod === 'business_balance' && (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted">
-                      Use the assigned balance to pay without direct transactions. The amount is discounted
-                      from the business balance configured by the partner.
-                    </p>
-                    <div className="p-3 rounded-lg bg-surface text-sm">
-                      <p className="text-muted">Business available balance</p>
-                      <p className="text-text font-medium">${businessBalance.toFixed(2)}</p>
-                    </div>
-                  </div>
-                )}
-
-                {paymentMethod === 'pay_at_box_office' && (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted">
-                      Activate payment at the box office so the reservation can be paid on-site using a
-                      configured terminal or cash at the register.
-                    </p>
-                    <FieldSelect
-                      id="box-office-collection"
-                      label="Collection method"
-                      value={boxOfficeCollection}
-                      onChange={(value) => setBoxOfficeCollection(value as string)}
-                      options={[
-                        { value: 'terminal', label: 'Fever terminal' },
-                        { value: 'cash', label: 'Cash at register' },
-                      ]}
+              {/* Right Column */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <div
+                  style={{
+                    backgroundColor: 'var(--background-main-default)',
+                    border: '1px solid var(--border-main-default)',
+                    borderRadius: '16px',
+                    padding: 'var(--space-6)',
+                    gap: 'var(--space-4)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  {isShowingCheckoutSkeleton ? (
+                    <CheckoutSkeleton />
+                  ) : (
+                    <>
+                      <Alert
+                      title="Please complete the payment to avoid cancellations."
+                      description={
+                        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '20px', gap: '4px' }}>
+                          <span>
+                            <span style={{ fontWeight: 600 }}>Payment deadline:</span> (Event time) Tue, 04 Nov 2025, 10:59 AM (UTC+11).
+                          </span>
+                          <span>
+                            <span style={{ fontWeight: 600 }}>Time left:</span> 3d 4h 3m
+                          </span>
+                        </div>
+                      }
+                      sentiment="warning"
+                      showCloseButton={false}
+                      titleWeight={400}
                     />
-                    <p className="text-xs text-muted">
-                      Fever collects the money when a Fever terminal is used. Cash collection is handled by
-                      the partner.
-                    </p>
-                  </div>
-                )}
 
-                {paymentMethod === 'mark_as_paid' && (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted">
-                      Mark the reservation as paid manually when payment is collected outside Fever.
-                      Record the method and add a reference for reconciliation.
-                    </p>
-                    <FieldSelect
-                      id="manual-payment-type"
-                      label="Manual payment method"
-                      value={manualPaymentType}
-                      onChange={(value) => setManualPaymentType(value as string)}
-                      options={[
-                        { value: 'credit_balance', label: 'Credit / Balance' },
-                        { value: 'other', label: 'Other' },
-                      ]}
-                    />
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold text-muted uppercase">Payment note</p>
-                      <FieldTextarea
-                        id="manual-payment-note"
-                        placeholder="Add a reference, e.g. bank transfer or cash receipt."
-                        value={manualPaymentNote}
-                        onChange={(event) => setManualPaymentNote(event.target.value)}
-                      />
+                    <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-main-default)', margin: '0 0 var(--space-4) 0' }}>
+                      Select your payment method
+                    </h3>
+
+                    {/* Payment Method Options */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px' }}>
+                      {paymentMethods.map((method) => {
+                        const isSelected = paymentMethod === method.id;
+                        return (
+                          <label
+                            key={method.id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'flex-start',
+                              padding: '10px 14px',
+                              height: '72px',
+                              border: `${isSelected ? 2 : 1}px solid ${isSelected ? 'var(--action-border-primary-default, #0079ca)' : 'var(--border-main-default)'}`,
+                              borderRadius: '12px',
+                              cursor: 'pointer',
+                              backgroundColor: 'white',
+                              fontSize: '14px',
+                              color: 'var(--text-main-default)',
+                              gap: '12px',
+                              boxSizing: 'border-box',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: '20px',
+                                height: '20px',
+                                borderRadius: '999px',
+                                border: `2px solid ${isSelected ? 'var(--action-border-primary-default, #0079ca)' : 'var(--border-main-default)'}`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxSizing: 'border-box',
+                              }}
+                            >
+                              {isSelected && (
+                                <div
+                                  style={{
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '999px',
+                                    backgroundColor: 'var(--action-border-primary-default, #0079ca)',
+                                  }}
+                                />
+                              )}
+                            </div>
+
+                            <span
+                              style={{
+                                fontFamily: 'var(--stack/body, "Montserrat:Bold", sans-serif)',
+                                fontWeight: 600,
+                                lineHeight: 'var(--leading/h6, 18px)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                flex: 1,
+                              }}
+                            >
+                              {method.label}
+                            </span>
+
+                            <input
+                              type="radio"
+                              name="paymentMethod"
+                              value={method.id}
+                              checked={isSelected}
+                              onChange={() => setPaymentMethod(method.id)}
+                              style={{ display: 'none' }}
+                            />
+                          </label>
+                        );
+                      })}
                     </div>
-                    <p className="text-xs text-muted">
-                      Bank transfers are not supported directly, so add details here if used.
-                    </p>
-                  </div>
-                )}
 
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border">
-                  <Button variant="secondary" onClick={handleBack}>
-                    Back
-                  </Button>
-                  <div className="flex gap-3">
-                    <Button variant="secondary">
-                      Pay later & continue
-                    </Button>
-                    <Button
-                      variant="primary"
-                      onClick={handlePayment}
-                      disabled={depositChoice === 'deposit' && !termsAccepted}
-                    >
-                      Pay
-                    </Button>
-                  </div>
+                    {paymentMethod === 'bank_card' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                        <p style={{ fontSize: '14px', color: 'var(--text-main-default)', margin: 0 }}>
+                          Enter your card details below to complete the payment.
+                        </p>
+                        <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main-default)', margin: 0 }}>Card number</p>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            border: '1px solid var(--border-main-default)',
+                            borderRadius: '12px',
+                            padding: '0 16px',
+                            height: '48px',
+                            gap: '16px',
+                          }}
+                        >
+                          <IconCreditCard size={20} color="var(--text-subtle-default)" />
+                          <input
+                            type="text"
+                            placeholder="0000 0000 0000 0000"
+                            value={cardNumber}
+                            onChange={(e) => setCardNumber(e.target.value)}
+                            style={{
+                              flex: 1,
+                              border: 'none',
+                              outline: 'none',
+                              fontSize: '16px',
+                              letterSpacing: '2px',
+                              color: 'var(--text-main-default)',
+                              backgroundColor: 'transparent',
+                            }}
+                          />
+                          <span style={{ fontSize: '14px', color: 'var(--text-subtle-default)' }}>12 / 25</span>
+                          <span style={{ fontSize: '14px', color: 'var(--text-subtle-default)' }}>000</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '32px', height: '20px', backgroundColor: '#1a1f71', borderRadius: '3px' }} />
+                          <div style={{ width: '32px', height: '20px', backgroundColor: '#eb001b', borderRadius: '3px' }} />
+                          <div style={{ width: '32px', height: '20px', backgroundColor: '#016fd0', borderRadius: '3px' }} />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <IconLock size={12} />
+                          <span style={{ fontSize: '12px', color: 'var(--text-subtle-default)' }}>Your payment info is stored securely</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: 'var(--action-text-primary-default)' }}>
+                          <a href="#" style={{ textDecoration: 'underline' }}>Terms and conditions of use</a>
+                          <a href="#" style={{ textDecoration: 'underline' }}>Privacy policy</a>
+                        </div>
+                      </div>
+                    )}
+
+                    {paymentMethod !== 'bank_card' && PAYMENT_DESCRIPTIONS[paymentMethod] && (
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: '14px',
+                          color: '#0b2b3f',
+                          fontWeight: 400,
+                        }}
+                      >
+                        {PAYMENT_DESCRIPTIONS[paymentMethod]}
+                      </p>
+                    )}
+
+                    {paymentMethod === 'business_balance' && (
+                      <div
+                        style={{
+                          backgroundColor: '#f4f6fb',
+                          borderRadius: '12px',
+                          padding: '12px 16px',
+                          border: '1px solid #ccd2d8',
+                          marginTop: 'var(--space-3)',
+                        }}
+                      >
+                        <p style={{ fontSize: '12px', color: '#536b75', margin: 0 }}>Business available balance</p>
+                        <p style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-main-default)', margin: '4px 0 0' }}>
+                          {formattedBalance}
+                        </p>
+                      </div>
+                    )}
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: 'var(--space-4)' }}>
+                        <Button
+                          variant="secondary"
+                          size="lg"
+                          onClick={() => router.push(`/reservations/${reservationId}`)}
+                        >
+                          Pay later & continue
+                        </Button>
+                        <Button variant="primary" size="lg" onClick={handlePayment}>
+                          {primaryActionLabel}
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
-            </Card>
+            </div>
           </div>
-          </div>
-        </div>
+
+          {/* Footer */}
+          <footer style={{ backgroundColor: 'var(--palette-neutral-700)', padding: '32px 28px', marginTop: 'auto' }}>
+            <div style={{ maxWidth: '1136px', margin: '0 auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+                <span style={{ fontSize: '32px', fontWeight: 700, color: 'white', fontStyle: 'italic' }}>fever</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '96px', marginBottom: '24px' }}>
+                <div>
+                  <p style={{ fontSize: '14px', fontWeight: 600, color: 'white', margin: '0 0 8px 0' }}>How fever works</p>
+                  <p style={{ fontSize: '14px', color: 'var(--text-secondary-on-dark)', margin: '0 0 4px 0' }}>How to view the status of my plans</p>
+                  <p style={{ fontSize: '14px', color: 'var(--text-secondary-on-dark)', margin: '0 0 4px 0' }}>Billing Manual</p>
+                  <p style={{ fontSize: '14px', color: 'var(--text-secondary-on-dark)', margin: 0 }}>How to validate tickets</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: '14px', fontWeight: 600, color: 'white', margin: '0 0 8px 0' }}>Support Contact</p>
+                  <p style={{ fontSize: '14px', color: 'var(--text-secondary-on-dark)', margin: '0 0 4px 0' }}>+34 911 87 66 36</p>
+                  <p style={{ fontSize: '14px', color: 'var(--text-secondary-on-dark)', margin: '0 0 4px 0' }}>Monday to Friday (09:30 to 18:30)</p>
+                  <p style={{ fontSize: '14px', color: 'var(--text-secondary-on-dark)', margin: 0 }}>Send us a message</p>
+                </div>
+              </div>
+              <div style={{ borderTop: '1px solid var(--text-secondary-on-dark)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary-on-dark)' }}>©2019 - Fever l Made in Madrid & NYC</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary-on-dark)' }}>v 0.00001</span>
+              </div>
+            </div>
+          </footer>
+        </main>
+        <ToastAlert
+          title="Reservation created successfully"
+          sentiment="positive"
+          visible={isSuccessAlertVisible}
+          onClose={() => setIsSuccessAlertVisible(false)}
+          autoDismissMs={3000}
+        />
       </div>
-    </AppShell>
+    </div>
   );
 }
