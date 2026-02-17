@@ -196,7 +196,7 @@ export function FieldSelect({
             {label && (
               <span
                 id={`${internalId}-label`}
-                className={`absolute top-0 text-[length:var(--size-caption)] font-[var(--weight-semibold)] leading-[var(--leading-caption)] ${labelColor}`}
+                className={`absolute top-0 left-0 right-0 overflow-hidden text-ellipsis whitespace-nowrap text-[length:var(--size-caption)] font-[var(--weight-semibold)] leading-[var(--leading-caption)] ${labelColor}`}
               >
                 {label}
                 {required && <span className="ml-1 text-[var(--select-border-danger)]">*</span>}

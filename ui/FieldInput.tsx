@@ -178,7 +178,7 @@ export function FieldInput({
           {label && (
             <label
               htmlFor={inputId}
-              className="absolute left-0 transition-all duration-150 pointer-events-none"
+              className="absolute left-0 right-0 transition-all duration-150 pointer-events-none overflow-hidden text-ellipsis whitespace-nowrap"
               style={{
                 top: isLabelFloating ? '0' : '50%',
                 transform: isLabelFloating ? 'translateY(0)' : 'translateY(-50%)',
@@ -201,7 +201,7 @@ export function FieldInput({
             disabled={disabled}
             readOnly={readOnly}
             aria-invalid={hasError || undefined}
-            className="w-full bg-transparent outline-none disabled:cursor-not-allowed"
+            className="w-full bg-transparent outline-none disabled:cursor-not-allowed text-ellipsis"
             style={{
               fontSize: TOKENS.valueSize,
               lineHeight: TOKENS.valueLineHeight,
@@ -209,6 +209,9 @@ export function FieldInput({
               color: getValueColor(),
               paddingTop: label && isLabelFloating ? '16px' : '0',
               fontFamily: TOKENS.fontFamily,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}
             onFocus={(e) => {
               setIsFocused(true);
