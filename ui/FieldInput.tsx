@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useId } from 'react';
+import { assetPath } from '@/lib/assetPath';
 
-const errorIcon = '/icons/error.svg';
-const searchIcon = '/icons/search.svg';
-const clearIcon = '/icons/clear.svg';
+const errorIcon = assetPath('/icons/error.svg');
+const searchIcon = assetPath('/icons/search.svg');
+const clearIcon = assetPath('/icons/clear.svg');
 
 // Design tokens from Figma
 const TOKENS = {

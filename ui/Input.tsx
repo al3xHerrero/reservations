@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
+import { assetPath } from '@/lib/assetPath';
 
-const searchIcon = '/icons/search.svg';
-const calendarIcon = '/icons/calendar.svg';
-const errorIcon = '/icons/error.svg';
-const visaLogo = '/icons/visa.svg';
-const mastercardLogo = '/icons/mastercard.svg';
-const amexLogo = '/icons/amex.svg';
+const searchIcon = assetPath('/icons/search.svg');
+const calendarIcon = assetPath('/icons/calendar.svg');
+const errorIcon = assetPath('/icons/error.svg');
+const visaLogo = assetPath('/icons/visa.svg');
+const mastercardLogo = assetPath('/icons/mastercard.svg');
+const amexLogo = assetPath('/icons/amex.svg');
 
 type InputVariant = 'text' | 'search' | 'payment' | 'date';
 

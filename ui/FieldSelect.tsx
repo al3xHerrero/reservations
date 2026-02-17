@@ -2,10 +2,11 @@
 
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { FieldCheckbox } from './FieldCheckbox';
+import { assetPath } from '@/lib/assetPath';
 
-const chevronDownIcon = '/icons/chevron-down.svg';
-const chevronDownDisabledIcon = '/icons/chevron-down-disabled.svg';
-const errorIcon = '/icons/error.svg';
+const chevronDownIcon = assetPath('/icons/chevron-down.svg');
+const chevronDownDisabledIcon = assetPath('/icons/chevron-down-disabled.svg');
+const errorIcon = assetPath('/icons/error.svg');
 
 export type FieldSelectOption = { value: string; label: string };
 

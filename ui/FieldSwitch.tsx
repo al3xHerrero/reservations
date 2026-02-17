@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
+import { assetPath } from '@/lib/assetPath';
 
-const iconSwitchCheckDefault = '/icons/switch-check.svg';
-const iconSwitchCheckContrast = '/icons/switch-check-contrast.svg';
+const iconSwitchCheckDefault = assetPath('/icons/switch-check.svg');
+const iconSwitchCheckContrast = assetPath('/icons/switch-check-contrast.svg');
 
 interface FieldSwitchProps {
   checked: boolean;
